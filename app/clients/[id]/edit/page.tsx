@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 import { EditClient } from "@/components/client-form";
+import { Loader } from "@/components/loader";
 import { getClient, requireSession } from "@/lib/data";
 
 export default function ClientEditPage({ params }: PageProps<"/clients/[id]/edit">) {
   return (
-    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+    <Suspense fallback={<Loader />}>
       {params.then(({ id }) => (
         <Edit id={id} />
       ))}

@@ -3,6 +3,7 @@ import { launch, type BrowserWorker } from "@cloudflare/playwright";
 // Two jobs, both things only Cloudflare can do for us:
 //   1. POST /screenshot — open a URL in Browser Run, stamp the agency watermark, store the JPEG in R2.
 //   2. Cron Triggers   — on each tick, ask the Next.js app which clients are due and run their reports.
+//                        The weekly tick also has the app read every client's Google review count.
 // The report pipeline itself (Umami, OpenAI, MongoDB, email) lives in the Next.js app.
 
 interface Env {
@@ -142,6 +143,21 @@ async function runBatch(env: Env, schedule: string) {
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 }
 
+// Once a week, have the app read every active client's Google rating and review count. This is
+// what the review graphs are drawn from, so it runs for clients on any schedule or none.
+async function pullReviews(env: Env) {
+  const app = env.APP_URL.replace(/\/+$/, "");
+  try {
+    const res = await fetch(`${app}/api/cron/reviews`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.WORKER_SECRET}` },
+    });
+    console.log(`[reviews] ${res.status} ${await res.text()}`);
+  } catch (error) {
+    console.error("[reviews] failed", error);
+  }
+}
+
 export default {
   async fetch(request, env): Promise<Response> {
     // Fail closed: until the WORKER_SECRET secret is set, nothing is accepted.
@@ -172,6 +188,8 @@ export default {
   },
 
   async scheduled(controller, env, ctx): Promise<void> {
-    ctx.waitUntil(runBatch(env, scheduleFor(controller.cron)));
+    const schedule = scheduleFor(controller.cron);
+    ctx.waitUntil(runBatch(env, schedule));
+    if (schedule === "weekly") ctx.waitUntil(pullReviews(env));
   },
 } satisfies ExportedHandler<Env>;

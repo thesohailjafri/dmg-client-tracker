@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { path: "", label: "Overview" },
+  { path: "/graphs", label: "Graphs" },
   { path: "/analytics", label: "Analytics" },
   { path: "/google-profile", label: "Google profile" },
   { path: "/edit", label: "Edit" },

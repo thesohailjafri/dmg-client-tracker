@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ClientActions } from "@/components/client-actions";
 import { KeyNumbers } from "@/components/key-numbers";
+import { Loader } from "@/components/loader";
 import { RunButtons } from "@/components/run-buttons";
 import { ScheduleBadges } from "@/components/schedule-badges";
 import { StatusBadge } from "@/components/status-badge";
@@ -22,7 +23,7 @@ import { umamiWebsiteUrl } from "@/lib/umami";
 
 export default function ClientOverviewPage({ params }: PageProps<"/clients/[id]">) {
   return (
-    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+    <Suspense fallback={<Loader />}>
       {params.then(({ id }) => (
         <Overview id={id} />
       ))}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { ClientTabs } from "@/components/client-tabs";
+import { HeaderLoader } from "@/components/loader";
 import { Nav } from "@/components/nav";
 import { ScheduleBadges } from "@/components/schedule-badges";
 import { getClient, requireSession } from "@/lib/data";
@@ -15,11 +16,7 @@ export default function ClientLayout({ children, params }: LayoutProps<"/clients
       </Suspense>
       <div className="mx-auto w-full max-w-5xl px-6 pb-24">
         <Suspense
-          fallback={
-            <header className="pt-10 pb-8">
-              <p className="text-sm text-muted-foreground">Loading…</p>
-            </header>
-          }
+          fallback={<HeaderLoader tabs />}
         >
           {params.then(({ id }) => (
             <ClientHeader id={id} />

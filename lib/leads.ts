@@ -48,6 +48,17 @@ const number = new Intl.NumberFormat("en-US");
 
 const count = (rows: MetricRow[], event: string) => rows.find((row) => row.name === event)?.count ?? 0;
 
+// The same rows over time, for the graphs: one count per period for each row of the ticked types.
+// `periods` holds every event counted in each period, oldest first.
+export function leadSeries(types: LeadType[], periods: MetricRow[][]): { event: string; label: string; counts: number[] }[] {
+  return types.flatMap((type) =>
+    ROWS[type].flatMap(({ event, label, optional }) => {
+      const counts = periods.map((rows) => count(rows, event));
+      return optional && counts.every((value) => value === 0) ? [] : [{ event, label, counts }];
+    }),
+  );
+}
+
 export type LeadFigure = KeyNumber & { current: number; previous: number };
 
 // The lead rows for a report, in the dashboard and the client email alike. Counts are small, so the

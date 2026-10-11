@@ -55,15 +55,8 @@ export function ClientActions({
 
   return (
     <div className="flex flex-col gap-2">
+      {/* most used first: looking things up, then sharing links, then the make-once review kit */}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => setDialog("qr")}>
-          <QrCodeIcon />
-          Review QR code
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => setDialog("banner")}>
-          <MegaphoneIcon />
-          Review request banner
-        </Button>
         <LinkButton href={client.url}>
           <MapPinIcon />
           Open Google profile
@@ -79,10 +72,6 @@ export function ClientActions({
             Open Umami analytics
           </Button>
         )}
-        <Button variant="outline" size="sm" onClick={() => copy("profile")}>
-          {copied === "profile" ? <CheckIcon /> : <CopyIcon />}
-          {copied === "profile" ? "Profile link copied" : "Copy Google profile link"}
-        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -91,6 +80,18 @@ export function ClientActions({
         >
           {copied === "review" ? <CheckIcon /> : <CopyIcon />}
           {copied === "review" ? "Review link copied" : "Copy Google review link"}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => copy("profile")}>
+          {copied === "profile" ? <CheckIcon /> : <CopyIcon />}
+          {copied === "profile" ? "Profile link copied" : "Copy Google profile link"}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setDialog("qr")}>
+          <QrCodeIcon />
+          Review QR code
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setDialog("banner")}>
+          <MegaphoneIcon />
+          Review request banner
         </Button>
       </div>
       {error && (

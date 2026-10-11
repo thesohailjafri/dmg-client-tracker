@@ -59,6 +59,9 @@ export const clientActivePatch = z.strictObject({ active: z.boolean() });
 // collection: clients
 export type ClientDoc = ClientInput & {
   _id: ObjectId;
+  // The secret in this client's read-only graphs link (/share/<business-name>/<token>). Absent = no link.
+  // Set and reset by /api/clients/[id]/share, never by the client form.
+  shareToken?: string;
   lastRunAt?: Date;
   lastStatus?: "ok" | "failed";
   lastError?: string;
@@ -108,6 +111,17 @@ export type PlaceFacts = {
   address: string;
   rating: number | null;
   reviewCount: number | null;
+};
+
+// collection: reviews — one Places API reading per client per weekly pull, for the review graphs.
+// Report runs keep their own reading on the screenshot (`place`); the graphs read both.
+export type ReviewDoc = {
+  _id: ObjectId;
+  clientId: ObjectId;
+  placeId: string;
+  rating: number | null;
+  reviewCount: number | null;
+  fetchedAt: Date;
 };
 
 export type MetricTotals = {

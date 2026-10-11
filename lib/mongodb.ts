@@ -1,7 +1,7 @@
 import dns from "node:dns";
 import { MongoClient, type Db } from "mongodb";
 import { env } from "./env";
-import type { AiLogDoc, ClientDoc, MetricsDoc, ScreenshotDoc } from "./schemas";
+import type { AiLogDoc, ClientDoc, MetricsDoc, ReviewDoc, ScreenshotDoc } from "./schemas";
 
 // Reuse one client across hot reloads and warm serverless invocations.
 const globalForMongo = globalThis as unknown as { _mongo?: Promise<Db> };
@@ -46,6 +46,9 @@ async function connect(): Promise<Db> {
   const db = client.db(process.env.MONGODB_DB || "dmg_tracker");
   await Promise.all([
     db.collection("clients").createIndex({ active: 1, schedules: 1 }),
+    // sparse: only clients with a graphs link carry the field
+    db.collection("clients").createIndex({ shareToken: 1 }, { unique: true, sparse: true }),
+    db.collection("reviews").createIndex({ clientId: 1, fetchedAt: 1 }),
     db.collection("screenshots").createIndex({ clientId: 1, capturedAt: -1 }),
     db.collection("metrics").createIndex({ clientId: 1, periodEnd: -1 }),
     db.collection("ai_logs").createIndex({ createdAt: -1 }),
@@ -71,5 +74,6 @@ export async function collections() {
     screenshots: db.collection<ScreenshotDoc>("screenshots"),
     metrics: db.collection<MetricsDoc>("metrics"),
     aiLogs: db.collection<AiLogDoc>("ai_logs"),
+    reviews: db.collection<ReviewDoc>("reviews"),
   };
 }

@@ -22,6 +22,8 @@ import {
 
 export type ClientView = ClientInput & {
   id: string;
+  // The secret in the client's read-only graphs link, "" when there is no link.
+  shareToken: string;
   lastRunAt: string | null;
   lastStatus: "ok" | "failed" | null;
   lastError: string;
@@ -92,6 +94,7 @@ export async function requireSession(): Promise<void> {
 function clientView(doc: ClientDoc): ClientView {
   return {
     id: doc._id.toString(),
+    shareToken: doc.shareToken ?? "",
     name: doc.name,
     emails: doc.emails,
     contacts: doc.contacts ?? [],
@@ -121,6 +124,15 @@ export const getClient = cache(async (id: string): Promise<ClientView | null> =>
   const doc = await clients.findOne({ _id: new ObjectId(id) });
   return doc ? clientView(doc) : null;
 });
+
+// The client behind a read-only graphs link, or null when the link was reset, turned off or made up.
+// This is the one read that runs without a session: the token in the address is the permission.
+export async function getSharedClient(token: string): Promise<ClientView | null> {
+  if (!/^[A-Za-z0-9_-]{32}$/.test(token)) return null;
+  const { clients } = await collections();
+  const doc = await clients.findOne({ shareToken: token });
+  return doc ? clientView(doc) : null;
+}
 
 // `silentLeads` are the ticked lead types none of the snapshots has an event for.
 export async function listAnalyticsSnapshots(

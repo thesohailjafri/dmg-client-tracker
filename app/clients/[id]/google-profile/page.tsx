@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Suspense } from "react";
+import { Loader } from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getClient, listGbpSnapshots, requireSession, SNAPSHOT_LIMIT, type GbpSnapshotView } from "@/lib/data";
@@ -8,7 +9,7 @@ import type { GbpNote, GbpState } from "@/lib/schemas";
 
 export default function ClientGoogleProfilePage({ params }: PageProps<"/clients/[id]/google-profile">) {
   return (
-    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+    <Suspense fallback={<Loader />}>
       {params.then(({ id }) => (
         <GoogleProfile id={id} />
       ))}

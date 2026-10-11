@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { ClientManager } from "@/components/client-manager";
+import { Loader } from "@/components/loader";
 import { Shell } from "@/components/shell";
 import { listClients, requireSession } from "@/lib/data";
 
@@ -9,7 +10,7 @@ export default function SettingsPage() {
       title="Settings"
       description="Clients, the URL each report captures, and how often it goes out."
     >
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+      <Suspense fallback={<Loader />}>
         <SettingsData />
       </Suspense>
     </Shell>

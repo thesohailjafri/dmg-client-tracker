@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { KeyNumbers } from "@/components/key-numbers";
+import { Loader } from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -15,7 +16,7 @@ import type { MetricRow } from "@/lib/schemas";
 
 export default function ClientAnalyticsPage({ params }: PageProps<"/clients/[id]/analytics">) {
   return (
-    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+    <Suspense fallback={<Loader />}>
       {params.then(({ id }) => (
         <Analytics id={id} />
       ))}

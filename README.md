@@ -2,7 +2,8 @@
 
 Internal tool. For each client it screenshots their Google Maps / Business Profile page, pulls
 website traffic from Umami, asks OpenAI for plain-English insights, and emails the client a
-branded report. No client portal, no charts — numbers, text and one image.
+branded report: numbers, text and one image. In the app, each client also has growth graphs, which
+can be shared with the client through a read-only link.
 
 Prototype: schema, design and flow are all expected to change.
 
@@ -29,13 +30,16 @@ code path in `lib/pipeline.ts`, used by both the cron and the dashboard's **Run*
 | Path | What |
 | --- | --- |
 | `app/dashboard` | Clients, manual runs, recent reports |
-| `app/clients/[id]` | One client: Overview, `/analytics` (Umami snapshots), `/google-profile` (screenshots + AI note), `/edit` (the client form) |
+| `app/clients/[id]` | One client: Overview, `/graphs` (growth over time), `/analytics` (Umami snapshots), `/google-profile` (screenshots + AI note), `/edit` (the client form) |
+| `app/share/[slug]/[token]` | A client's read-only graphs page. The only page with no sign-in |
 | `app/settings` | The client list: activate, delete, review kit shortcuts |
 | `app/clients/new` | The new client form; saving opens that client's page |
-| `app/api` | `clients`, `reports/run`, `cron/due`, `screenshots/[id]`, `auth/login` |
+| `app/api` | `clients`, `clients/[id]/share`, `reports/run`, `cron/due`, `cron/reviews`, `screenshots/[id]`, `auth/login` |
 | `lib/pipeline.ts` | The report run |
 | `lib/umami.ts` `openai.ts` `r2.ts` `playwright.ts` `email.ts` `mongodb.ts` | One client per service |
 | `lib/leads.ts` | Lead event names and the lead rows of a report |
+| `lib/graphs.ts` `graph-data.ts` | The graph ranges, periods and scales; and loading them from Umami and MongoDB |
+| `lib/reviews.ts` | The weekly Google reading behind the review graphs |
 | `lib/schemas.ts` | Collection types + input validation |
 | `tracking/umami-events.tsx` | Not part of this app: the file copied into each client site to send lead events |
 | `proxy.ts` | Auth gate (Next.js 16 name for middleware) |
@@ -45,7 +49,8 @@ code path in `lib/pipeline.ts`, used by both the cron and the dashboard's **Run*
 
 | Collection | One document per | Key fields |
 | --- | --- | --- |
-| `clients` | client | `name`, `emails[]`, `contacts[]` (`name`, `phone`), `url` (Maps share link), `googleReviewUrl`, `googlePlaceId`, `umamiWebsiteId`, `leadTypes[]`, `schedules[]`, `active`, `lastRunAt`, `lastStatus`, `lastError` |
+| `clients` | client | `name`, `emails[]`, `contacts[]` (`name`, `phone`), `url` (Maps share link), `googleReviewUrl`, `googlePlaceId`, `umamiWebsiteId`, `leadTypes[]`, `schedules[]`, `active`, `shareToken` (the graphs link, absent = none), `lastRunAt`, `lastStatus`, `lastError` |
+| `reviews` | weekly Google reading | `clientId`, `placeId`, `rating`, `reviewCount`, `fetchedAt` |
 | `screenshots` | capture | `clientId`, `url`, `r2Key`, `bytes`, `capturedAt`, `note` (AI's fixed fields: `state`, `rating`, `reviewCount`, `category`, `address`, `phone`, `website`, `hoursShown`, `language`), `place` (Places API: `placeId`, `name`, `address`, `rating`, `reviewCount`), `placeError` |
 | `metrics` | Umami pull | `clientId`, `websiteId`, `periodStart/End`, `current`, `previous`, `topPages`, `topReferrers`, `events` (every event name: `current`, `previous`), `forms` (`started`, `submitted`, `steps`) |
 | `ai_logs` | pipeline run | `clientId`, `trigger`, `period`, `status`, `error`, `screenshotId`, `metricsId`, `model`, `output`, `usage`, `email` |
@@ -87,6 +92,34 @@ says so. `book_complete` only exists where the calendar is embedded on the site:
 cal.com can only be counted as "Booking page opened". Never put names, emails or phone numbers in
 event data.
 
+## Graphs
+
+Each client has a **Graphs** tab: visitors, page views, visits, the lead types ticked for that
+client, and Google review count and rating, drawn over time. There is one control, the range, and
+the range fixes the grouping, so no view has too many points to read or too few to compare:
+
+| Range | One point per |
+| --- | --- |
+| Last 30 / 60 / 90 days | week (Monday to Sunday, UTC) |
+| Last 6 / 12 months, All time | month |
+
+Ranges cover whole weeks or months plus the one in progress, which is drawn paler and never used
+for the headline number or a comparison. "All time" starts at the site's first visit or the first
+Google reading and stops at 36 months.
+
+- **Traffic and leads** are read live from Umami, one request pair per week or month, so visitors
+  are unique within each period. Finished periods are cached (`use cache` in `lib/umami.ts`).
+  They go back as far as Umami does, including before the client was added here.
+- **Reviews** are Google's own figures only: the reading each report run keeps on its screenshot,
+  plus one reading a week for every active client with a Google place ID, taken on the weekly
+  cron tick (`POST /api/cron/reviews`). History starts with the first reading; Google has no past
+  figures to ask for. Needs `GOOGLE_PLACES_API_KEY`.
+
+**Client link.** At the bottom of the Graphs tab, **Create client link** makes a read-only page of
+the same graphs at `/share/<business-name>/<token>` with no sign-in. The name only makes the link easy to recognise and is never used to find the client: after a rename, a link with the old name redirects to the new one. The random token is the only protection, so treat the
+link like a password. **Reset link** replaces it and **Turn off** removes it; either way the old
+address stops working at once. The page shows graphs and the client's name, nothing else.
+
 ## Local setup
 
 Needs Node 20+.
@@ -127,7 +160,7 @@ Set these in `.env.local` and in Vercel. Full list with comments: `.env.example`
 | `UMAMI_API_KEY` or `UMAMI_USERNAME` + `UMAMI_PASSWORD` | yes | Self-hosted Umami has no API keys: use a login token as the key, or give username/password |
 | `RESEND_API_KEY`, `EMAIL_FROM` | yes | `EMAIL_FROM` must be on a domain verified in Resend |
 | `EMAIL_OVERRIDE_TO` | testing | Sends every report to this address instead of the client |
-| `GOOGLE_PLACES_API_KEY` | no | Places API (New) key. Adds Google's own rating and review count to every snapshot (one Place Details call per report, 1,000 a month free). Without it those come from the screenshot, where Google often hides the count |
+| `GOOGLE_PLACES_API_KEY` | no | Places API (New) key. Adds Google's own rating and review count to every snapshot (one Place Details call per report, plus one per active client a week for the review graphs; 1,000 a month free). Without it those come from the screenshot, where Google often hides the count, and there are no review graphs |
 | `AGENCY_NAME` | no | Email header + watermark text, default `DMG` |
 | `OPENAI_MODEL` | no | Default `gpt-4.1-mini` (~$0.002 per report). Must accept images. `gpt-4.1-nano` is ~3x cheaper |
 | `MONGODB_DB` | no | Default `dmg_tracker` |
@@ -225,6 +258,9 @@ Each client can be on any mix of schedules, ticked in **Settings**: for example 
 monthly. No boxes ticked means manual runs only. Every scheduled run is its own report with its
 own window (daily = last 1 day, weekly = 7, monthly = 30) and always emails the client, so a
 weekly + monthly client gets two emails on a Monday that falls on the 1st.
+
+The weekly tick also reads every active client's Google rating and review count for the review
+graphs, whatever schedule the client is on.
 
 Test a cron locally from `workflows/` (uses the real Browser Run binding, so it needs `wrangler login`):
 

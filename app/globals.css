@@ -67,10 +67,11 @@
   * {
     @apply border-border outline-ring/50;
   }
-  /* No motion anywhere, including in shadcn components added later. */
-  *,
-  ::before,
-  ::after {
+  /* No motion anywhere, including in shadcn components added later. The one exception is the
+     loader (components/loader.tsx), marked data-loader and animated at the end of this file. */
+  *:not([data-loader], [data-loader] *),
+  :not([data-loader], [data-loader] *)::before,
+  :not([data-loader], [data-loader] *)::after {
     transition: none !important;
     animation: none !important;
   }
@@ -79,5 +80,157 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* The loader. One 1.8s loop shared by every part, so they all stay in step:
+   0-42% the trend line draws, 38-56% the arrowhead opens from its corner, 50-66% the sparks pop,
+   56-88% a ring goes out, 88-100% the drawing fades before it starts again. */
+[data-loader] {
+  /* a fast load shows nothing: the loader only fades in after a short wait */
+  animation: loader-in 0.25s 0.15s both;
+}
+[data-loader] :is(.loader-line, .loader-head, .loader-spark, .loader-ring) {
+  animation-duration: 1.8s;
+  animation-iteration-count: infinite;
+}
+.loader-line {
+  stroke-dasharray: 1 2;
+  animation-name: loader-line;
+}
+.loader-head {
+  animation-name: loader-head;
+}
+.loader-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: loader-spark;
+}
+.loader-spark-late {
+  animation-name: loader-spark-late;
+}
+.loader-ring {
+  animation-name: loader-ring;
+}
+.loader-bar {
+  animation: loader-bar 1.4s ease-in-out infinite;
+}
+.loader-bar + .loader-bar {
+  animation-delay: 0.15s;
+}
+
+@keyframes loader-in {
+  from {
+    opacity: 0;
+  }
+}
+/* starts a little past 1 so the round cap of the hidden line does not show as a dot */
+@keyframes loader-line {
+  0% {
+    stroke-dashoffset: 1.1;
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+  }
+  42%,
+  88% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+/* the corner of the arrowhead is the middle of its path, so the dash grows out from there */
+@keyframes loader-head {
+  0%,
+  38% {
+    stroke-dasharray: 0 1;
+    stroke-dashoffset: -0.5;
+    opacity: 0;
+  }
+  39% {
+    stroke-dasharray: 0 1;
+    stroke-dashoffset: -0.5;
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1);
+  }
+  56%,
+  88% {
+    stroke-dasharray: 1 1;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dasharray: 1 1;
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes loader-spark {
+  0%,
+  50% {
+    opacity: 0;
+    transform: scale(0.2);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+  62%,
+  88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+@keyframes loader-spark-late {
+  0%,
+  55% {
+    opacity: 0;
+    transform: scale(0.2);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+  67%,
+  88% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+@keyframes loader-ring {
+  0%,
+  56% {
+    opacity: 0;
+    transform: scale(1);
+    animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+  57% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  88%,
+  100% {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+@keyframes loader-bar {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* For people who ask for less motion: the finished logo and still bars, no loop. */
+@media (prefers-reduced-motion: reduce) {
+  [data-loader],
+  [data-loader] * {
+    animation: none !important;
+  }
+  .loader-ring {
+    opacity: 0;
   }
 }

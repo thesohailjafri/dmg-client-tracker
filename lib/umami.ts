@@ -1,3 +1,4 @@
+import { cacheLife } from "next/cache";
 import { env } from "./env";
 import { EVENTS } from "./leads";
 import type { MetricRow, MetricTotals } from "./schemas";
@@ -126,6 +127,39 @@ async function eventBreakdown(
     );
   } catch {
     return [];
+  }
+}
+
+// One week or month of a graph: the totals and every event counted in it. Asked for one period at
+// a time so visitors are unique within the period, which summing days would not give.
+// A finished period never changes, so it is kept; the one in progress is re-read after a minute.
+export async function fetchUmamiBucket(
+  websiteId: string,
+  startAt: number,
+  endAt: number,
+  finished: boolean,
+): Promise<{ totals: MetricTotals; events: MetricRow[] }> {
+  "use cache";
+  if (finished) cacheLife("weeks");
+  else cacheLife("minutes");
+
+  const range = { startAt, endAt };
+  const [stats, events] = await Promise.all([
+    get<RawStats>(`/websites/${websiteId}/stats`, range),
+    eventCounts(websiteId, range),
+  ]);
+  return { totals: totals(stats, "current"), events };
+}
+
+// When the website's first visit was recorded, or null when it has none or Umami will not say.
+export async function fetchUmamiStart(websiteId: string): Promise<number | null> {
+  try {
+    // v3 answers { startDate }, v2 { mindate }.
+    const range = await get<{ startDate?: string; mindate?: string }>(`/websites/${websiteId}/daterange`, {});
+    const start = Date.parse(range.startDate ?? range.mindate ?? "");
+    return Number.isNaN(start) ? null : start;
+  } catch {
+    return null;
   }
 }
 

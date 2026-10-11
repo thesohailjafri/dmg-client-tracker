@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { KeyNumbers } from "@/components/key-numbers";
+import { Loader } from "@/components/loader";
 import { RunButtons } from "@/components/run-buttons";
 import { ScheduleBadges } from "@/components/schedule-badges";
 import { Shell } from "@/components/shell";
@@ -21,7 +22,7 @@ import { formatDate } from "@/lib/format";
 export default function DashboardPage() {
   return (
     <Shell title="Dashboard" description="Clients, manual runs and the latest reports.">
-      <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+      <Suspense fallback={<Loader />}>
         <DashboardData />
       </Suspense>
     </Shell>
