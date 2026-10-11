@@ -28,7 +28,7 @@ crons = [
 ]
 
 [vars]
-APP_URL = "https://your-domain-here"
+APP_URL = "https://tracker.dmgapps.com"
 # Folder inside the bucket. Objects land at <R2_PREFIX>/clients/<clientId>/<timestamp>.jpg
 R2_PREFIX = "dmg-client-reports"
 
