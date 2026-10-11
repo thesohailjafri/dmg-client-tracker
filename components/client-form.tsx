@@ -209,6 +209,7 @@ export function ClientForm({
       graphOrder,
       schedules: form.getAll("schedules"),
       active: form.get("active") === "on",
+      copyTeam: form.get("copyTeam") === "on",
     };
     const res = await fetch(client ? `/api/clients/${client.id}` : "/api/clients", {
       method: client ? "PATCH" : "POST",
@@ -523,6 +524,21 @@ export function ClientForm({
               Active
               <span className="block text-xs font-normal text-muted-foreground">
                 Untick to pause scheduled reports. Manual runs still work.
+              </span>
+            </span>
+          </Label>
+          <Label className="items-start gap-2.5 leading-normal">
+            <input
+              type="checkbox"
+              name="copyTeam"
+              className="mt-0.5 size-4 accent-primary"
+              defaultChecked={client?.copyTeam ?? false}
+            />
+            <span>
+              Send a copy to the team
+              <span className="block text-xs font-normal text-muted-foreground">
+                The team inbox gets a hidden copy of every email this client is sent: the welcome and each
+                report. The client does not see it.
               </span>
             </span>
           </Label>

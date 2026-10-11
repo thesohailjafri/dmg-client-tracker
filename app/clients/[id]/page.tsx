@@ -197,7 +197,9 @@ function Emails({ client }: { client: ClientView }) {
               // the addresses say whether it reached the client or the test inbox
               <>
                 Sent to {welcome.to.join(", ")}
-                <span className="block text-xs text-muted-foreground">{formatDate(welcome.at)} UTC</span>
+                <span className="block text-xs text-muted-foreground">
+                  {formatDate(welcome.at)} UTC{welcome.copied.length > 0 && ", with a copy to the team"}
+                </span>
               </>
             ) : (
               <span role="alert" className="text-destructive">

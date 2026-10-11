@@ -28,7 +28,8 @@ export type ClientView = ClientInput & {
   shareToken: string;
   // How the welcome email went, null for a client from before there was one.
   // `to` is where it actually went: the test inbox, not the client, while emails are rerouted.
-  welcomeEmail: { status: EmailResult["status"]; at: string; to: string[]; error: string } | null;
+  // `copied` is the team inbox, when a copy went there too.
+  welcomeEmail: { status: EmailResult["status"]; at: string; to: string[]; copied: string[]; error: string } | null;
   lastRunAt: string | null;
   lastStatus: "ok" | "failed" | null;
   lastError: string;
@@ -105,6 +106,7 @@ function clientView(doc: ClientDoc): ClientView {
           status: doc.welcomeEmail.status,
           at: doc.welcomeEmail.at.toISOString(),
           to: doc.welcomeEmail.status === "sent" ? doc.welcomeEmail.to : [],
+          copied: doc.welcomeEmail.status === "sent" ? (doc.welcomeEmail.copied ?? []) : [],
           error: doc.welcomeEmail.status === "failed" ? doc.welcomeEmail.error : "",
         }
       : null,
@@ -122,6 +124,7 @@ function clientView(doc: ClientDoc): ClientView {
     // a client saved when there was a daily report may still carry "daily": it is not shown or run
     schedules: SCHEDULES.filter((schedule) => doc.schedules?.includes(schedule)),
     active: doc.active,
+    copyTeam: doc.copyTeam ?? false,
     lastRunAt: doc.lastRunAt?.toISOString() ?? null,
     lastStatus: doc.lastStatus ?? null,
     lastError: doc.lastError ?? "",

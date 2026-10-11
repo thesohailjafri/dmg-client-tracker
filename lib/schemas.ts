@@ -130,6 +130,9 @@ export const clientInput = z.object({
   // The order of the sections on the Report tab and the client's graphs link.
   graphOrder: z.array(z.enum(GRAPH_SECTIONS)).default([]).transform(graphOrder),
   active: z.boolean().default(true),
+  // The team inbox gets a hidden copy (BCC) of every email this client is sent: the welcome and
+  // each report, scheduled or run by hand. Off unless ticked.
+  copyTeam: z.boolean().default(false),
 });
 export type ClientInput = z.infer<typeof clientInput>;
 
@@ -249,7 +252,8 @@ export const aiOutput = z.object({
 export type AiOutput = z.infer<typeof aiOutput>;
 
 export type EmailResult =
-  | { status: "sent"; id: string; to: string[] }
+  // `copied` is the team inbox, when the client is set to send it a copy
+  | { status: "sent"; id: string; to: string[]; copied?: string[] }
   | { status: "skipped" }
   | { status: "failed"; error: string };
 

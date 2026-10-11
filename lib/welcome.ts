@@ -24,7 +24,12 @@ export async function welcomeEmail(
 export async function sendWelcome(client: WithId<ClientDoc>, idempotencyKey?: string): Promise<EmailResult> {
   let result: EmailResult;
   try {
-    result = await sendEmail({ to: client.emails, email: await welcomeEmail(client), idempotencyKey });
+    result = await sendEmail({
+      to: client.emails,
+      email: await welcomeEmail(client),
+      copyTeam: client.copyTeam,
+      idempotencyKey,
+    });
   } catch (error) {
     result = { status: "failed", error: error instanceof Error ? error.message : String(error) };
   }

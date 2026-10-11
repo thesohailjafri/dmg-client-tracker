@@ -142,7 +142,10 @@ function Reports({ reports }: { reports: ReportView[] }) {
                     <StatusBadge status={report.status} />
                     <Badge variant="outline">{report.period}</Badge>
                     <Badge variant="outline">{report.trigger}</Badge>
-                    <Badge variant="outline">email {report.email.status}</Badge>
+                    <Badge variant="outline">
+                      email {report.email.status}
+                      {report.email.status === "sent" && report.email.copied?.length ? " + team copy" : ""}
+                    </Badge>
                   </summary>
 
                   <div className="mt-4 flex flex-col gap-6">

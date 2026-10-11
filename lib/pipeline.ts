@@ -103,6 +103,7 @@ export async function runReport(
       log.email = await sendEmail({
         to: client.emails,
         email: await reportEmail(client, log),
+        copyTeam: client.copyTeam,
         // A scheduled report goes out once a day at most, however often its cron tick is retried.
         // A manual "Run & send" is someone asking for it again, so it is never held back.
         idempotencyKey:

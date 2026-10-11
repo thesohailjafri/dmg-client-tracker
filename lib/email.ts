@@ -316,6 +316,8 @@ const SEND_TIMEOUT = 15_000
 export async function sendEmail(input: {
   to: string[]
   email: RenderedEmail
+  // Also send the team inbox a hidden copy (BCC): the client's "Send a copy to the team" setting.
+  copyTeam?: boolean
   // The same key within a day is sent once only, so a retried cron tick cannot email a client twice.
   idempotencyKey?: string
 }): Promise<EmailResult> {
@@ -334,6 +336,10 @@ export async function sendEmail(input: {
   const subject = override
     ? `[Test, for ${input.to.join(', ')}] ${input.email.subject}`
     : input.email.subject
+  // No copy while emails are rerouted: the test inbox already has the only one. And none when the
+  // team's address is among the recipients anyway.
+  const alreadyGets = to.some((address) => address.toLowerCase() === AGENCY_EMAIL.toLowerCase())
+  const copied = input.copyTeam && !override && !alreadyGets ? [AGENCY_EMAIL] : []
 
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -349,6 +355,7 @@ export async function sendEmail(input: {
       body: JSON.stringify({
         from: env('EMAIL_FROM'),
         to,
+        ...(copied.length > 0 && { bcc: copied }),
         reply_to: AGENCY_EMAIL,
         subject,
         html: input.email.html,
@@ -365,7 +372,12 @@ export async function sendEmail(input: {
         error: `Resend ${res.status}: ${(await res.text()).slice(0, 300)}`,
       }
     }
-    return { status: 'sent', id: ((await res.json()) as { id: string }).id, to }
+    return {
+      status: 'sent',
+      id: ((await res.json()) as { id: string }).id,
+      to,
+      ...(copied.length > 0 && { copied }),
+    }
   } catch (error) {
     return {
       status: 'failed',
