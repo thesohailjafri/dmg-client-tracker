@@ -60,6 +60,10 @@ function withScheme(address: string) {
 // (browsers compile `pattern` with the "v" flag, where a "/" inside [] has to be escaped)
 const WEB_ADDRESS_PATTERN = "\\s*(https?://)?[^\\s\\/.]+(\\.[^\\s\\/.]+)+(/\\S*)?\\s*";
 
+// A link on one of Google's own addresses, the same ones the server takes (GOOGLE_HOST in lib/schemas.ts).
+const GOOGLE_LINK_PATTERN =
+  "\\s*https?://([A-Za-z0-9\\-]+\\.)*(google\\.[a-z]{2,3}(\\.[a-z]{2})?|goo\\.gl|g\\.co|g\\.page|share\\.google)([:\\/?#]\\S*)?\\s*";
+
 // Google's own map for looking up a business's Place ID by name.
 const PLACE_ID_FINDER_URL =
   "https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder";
@@ -231,6 +235,7 @@ export function ClientForm({
               name="name"
               required
               placeholder="e.g. OK Auto Service Centre"
+              maxLength={120}
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
@@ -280,6 +285,9 @@ export function ClientForm({
               type="url"
               required
               placeholder="e.g. https://maps.app.goo.gl/Qy7kL2mNp4RsT8vW9"
+              maxLength={2000}
+              pattern={GOOGLE_LINK_PATTERN}
+              title="A Google Maps link, like https://maps.app.goo.gl/Qy7kL2mNp4RsT8vW9"
               aria-describedby="url-help"
               defaultValue={client?.url}
             />
@@ -290,6 +298,9 @@ export function ClientForm({
               name="googleReviewUrl"
               type="url"
               placeholder="e.g. https://g.page/r/CQx1aBcDeFgHiEBM/review"
+              maxLength={2000}
+              pattern={GOOGLE_LINK_PATTERN}
+              title="A Google review link, like https://g.page/r/CQx1aBcDeFgHiEBM/review"
               defaultValue={client?.googleReviewUrl}
             />
           </Field>
@@ -314,6 +325,9 @@ export function ClientForm({
               id="googlePlaceId"
               name="googlePlaceId"
               placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
+              spellCheck={false}
+              pattern="\s*[A-Za-z0-9_\-]{10,300}\s*"
+              title="Letters, numbers, - and _ only, like ChIJN1t_tDeuEmsRUsoyG83frY4"
               aria-describedby="googlePlaceId-help"
               defaultValue={client?.googlePlaceId}
             />
@@ -397,6 +411,9 @@ export function ClientForm({
             <Input
               id="emails"
               name="emails"
+              // the browser checks every address in the comma-separated list
+              type="email"
+              multiple
               required
               placeholder="e.g. owner@okauto.in, manager@okauto.in"
               aria-describedby="emails-help"
@@ -417,6 +434,7 @@ export function ClientForm({
                   <Input
                     aria-label={`Contact ${index + 1} name`}
                     placeholder="e.g. Rahul Sharma"
+                    maxLength={120}
                     className="w-auto flex-1 basis-32"
                     required={started}
                     value={contact.name}
@@ -510,6 +528,9 @@ export function ClientForm({
               id="umamiWebsiteId"
               name="umamiWebsiteId"
               placeholder="e.g. 3f2a9c1e-7b4d-4e6a-9f10-2c8d5b7a1e34"
+              spellCheck={false}
+              pattern="\s*[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\s*"
+              title="The ID from Umami, like 3f2a9c1e-7b4d-4e6a-9f10-2c8d5b7a1e34"
               aria-describedby="umamiWebsiteId-help"
               defaultValue={client?.umamiWebsiteId}
             />
