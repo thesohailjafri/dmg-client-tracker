@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "clientId is required" }, { status: 400 });
   }
   if (!body.period || !SCHEDULES.includes(body.period)) {
-    return Response.json({ error: "period must be daily, weekly or monthly" }, { status: 400 });
+    return Response.json({ error: "period must be weekly or monthly" }, { status: 400 });
   }
 
   try {

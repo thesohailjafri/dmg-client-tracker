@@ -4,7 +4,7 @@ import { fetchPlace, placesEnabled } from "./places";
 
 // The weekly Google reading behind the review graphs. Reviews move slowly, so once a week is
 // enough to draw growth, and it is one Place Details call per client (see lib/places.ts for the
-// free allowance). Clients on a daily or weekly report get readings from their report runs too.
+// free allowance). Clients on a weekly or monthly report get readings from their report runs too.
 
 export type ReviewPull = {
   pulled: number;

@@ -18,13 +18,13 @@ binding = "SCREENSHOTS"
 bucket_name = "dmg-common-bucket"
 
 # All times UTC. The Worker reads the expression to decide which clients to run:
-#   day-of-month set -> "monthly" clients, day-of-week set -> "weekly", neither -> "daily".
-# Staggered so the three batches never start in the same minute.
+#   day-of-month set -> "monthly" clients, day-of-week set -> "weekly". There is no daily report:
+#   an expression with neither set runs nothing.
+# Staggered so the two batches never start in the same minute.
 [triggers]
 crons = [
-  "30 13 * * *",   # daily   13:30 (7:00 PM IST)
-  "40 13 * * MON", # weekly  Monday 13:40
-  "50 13 1 * *",   # monthly 1st 13:50
+  "30 13 * * MON", # weekly  Monday 13:30 (7:00 PM IST)
+  "40 13 1 * *",   # monthly 1st 13:40
 ]
 
 [vars]

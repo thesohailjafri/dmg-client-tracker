@@ -144,7 +144,7 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
         <CardHeader>
           <CardTitle>Clients</CardTitle>
           <CardDescription>
-            Scheduled reports are emailed by the Cloudflare Worker from 13:30 UTC (7:00 PM IST). Inactive clients are
+            Scheduled reports are emailed by the Cloudflare Worker from 13:30 UTC (7:00 PM IST): weekly on Mondays, monthly on the 1st. Inactive clients are
             skipped.
           </CardDescription>
           <CardAction>

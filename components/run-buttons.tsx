@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { SCHEDULES, type Schedule } from "@/lib/schemas";
 
-// Pick which report to build (daily / weekly / monthly window), then:
+// Pick which report to build (weekly or monthly window), then:
 // "Run" builds it without emailing anyone, "Run & send" also emails the client.
 export function RunButtons({
   clientId,

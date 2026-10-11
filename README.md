@@ -13,7 +13,7 @@ Prototype: schema, design and flow are all expected to change.
 Cloudflare Worker (workflows/)                Next.js on Vercel
 ┌──────────────────────────────┐              ┌────────────────────────────────────┐
 │ Cron Triggers                │─ GET  ──────▶│ /api/cron/due      who is due?     │
-│   daily / weekly / monthly   │─ POST ──────▶│ /api/reports/run   one client      │
+│   weekly / monthly           │─ POST ──────▶│ /api/reports/run   one client      │
 │                              │              │   lib/pipeline.ts:                 │
 │ POST /screenshot             │◀──── POST ───│     1 screenshot (asks the Worker) │
 │   Browser Run + Playwright   │              │     2 Umami metrics                │
@@ -228,7 +228,7 @@ The deploy prints the Worker URL. Put it in `WORKER_URL`.
 
 1. Sign in → **Settings** → add a client.
 2. Set `EMAIL_OVERRIDE_TO` to your own address while testing.
-3. **Dashboard** → pick the period (daily / weekly / monthly) → **Run** builds that report without emailing. **Run & send** also emails it.
+3. **Dashboard** → pick the period (weekly or monthly) → **Run** builds that report without emailing. **Run & send** also emails it.
 
 ## Cron schedules
 
@@ -237,27 +237,24 @@ Defined in `workflows/wrangler.toml`, all UTC:
 ```toml
 [triggers]
 crons = [
-  "30 13 * * *",   # daily   13:30 (7:00 PM IST)
-  "40 13 * * MON", # weekly  Monday 13:40
-  "50 13 1 * *",   # monthly 1st 13:50
+  "30 13 * * MON", # weekly  Monday 13:30 (7:00 PM IST)
+  "40 13 1 * *",   # monthly 1st 13:40
 ]
 ```
 
 The Worker picks the client group from the shape of the expression — day-of-month set means
-`monthly`, day-of-week set means `weekly`, neither means `daily` — so you can change times
-freely. Examples:
+`monthly`, day-of-week set means `weekly` — so you can change times freely. There is no daily
+report: an expression with neither set runs nothing. Examples:
 
 | Want | Cron |
 | --- | --- |
-| Daily at 06:00 UTC | `0 6 * * *` |
 | Weekly on Friday 09:00 UTC | `0 9 * * FRI` |
 | Monthly on the 15th 07:00 UTC | `0 7 15 * *` |
-| Weekdays only | not supported as "daily" — a day-of-week value is treated as `weekly` |
 
-Each client can be on any mix of schedules, ticked in **Settings**: for example weekly **and**
-monthly. No boxes ticked means manual runs only. Every scheduled run is its own report with its
-own window (daily = last 1 day, weekly = 7, monthly = 30) and always emails the client, so a
-weekly + monthly client gets two emails on a Monday that falls on the 1st.
+Each client can be weekly, monthly or both, ticked on its **Edit** tab. No boxes ticked means
+manual runs only. Every scheduled run is its own report with its own window (weekly = last 7 days,
+monthly = 30) and always emails the client, so a weekly + monthly client gets two emails on a
+Monday that falls on the 1st.
 
 The weekly tick also reads every active client's Google rating and review count for the review
 graphs, whatever schedule the client is on.
@@ -269,7 +266,7 @@ npm run dev
 ```
 
 ```bash
-curl "http://localhost:8787/__scheduled?cron=0+6+*+*+*"
+curl "http://localhost:8787/__scheduled?cron=30+13+*+*+MON"
 ```
 
 Put `WORKER_SECRET=...` in `workflows/.dev.vars` for local Worker runs.

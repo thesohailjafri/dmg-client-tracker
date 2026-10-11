@@ -9,6 +9,7 @@ import { formRows, leadFigures, silentLeadTypes, type FormRow } from "./leads";
 import { collections } from "./mongodb";
 import {
   graphOrder,
+  SCHEDULES,
   type AiOutput,
   type ClientDoc,
   type ClientInput,
@@ -105,7 +106,8 @@ function clientView(doc: ClientDoc): ClientView {
     umamiWebsiteId: doc.umamiWebsiteId,
     leadTypes: doc.leadTypes ?? [],
     graphOrder: graphOrder(doc.graphOrder),
-    schedules: doc.schedules ?? [],
+    // a client saved when there was a daily report may still carry "daily": it is not shown or run
+    schedules: SCHEDULES.filter((schedule) => doc.schedules?.includes(schedule)),
     active: doc.active,
     lastRunAt: doc.lastRunAt?.toISOString() ?? null,
     lastStatus: doc.lastStatus ?? null,

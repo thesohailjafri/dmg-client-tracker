@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
   const schedule = request.nextUrl.searchParams.get("schedule") as Schedule | null;
   if (!schedule || !SCHEDULES.includes(schedule)) {
-    return Response.json({ error: "schedule must be daily, weekly or monthly" }, { status: 400 });
+    return Response.json({ error: "schedule must be weekly or monthly" }, { status: 400 });
   }
 
   // Matches every client whose schedules array contains this one.

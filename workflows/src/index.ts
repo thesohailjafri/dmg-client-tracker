@@ -104,13 +104,13 @@ async function capture(env: Env, input: ScreenshotRequest) {
   }
 }
 
-// "50 13 1 * *" -> monthly, "40 13 * * MON" -> weekly, anything else -> daily.
+// "40 13 1 * *" -> monthly, "30 13 * * MON" -> weekly. Anything else is not a report schedule.
 // Derived from the cron expression so times can change in wrangler.toml without touching code.
-function scheduleFor(cron: string): "daily" | "weekly" | "monthly" {
+function scheduleFor(cron: string): "weekly" | "monthly" | null {
   const [, , dayOfMonth, , dayOfWeek] = cron.trim().split(/\s+/);
   if (dayOfMonth !== "*") return "monthly";
   if (dayOfWeek !== "*") return "weekly";
-  return "daily";
+  return null;
 }
 
 async function runBatch(env: Env, schedule: string) {
@@ -189,6 +189,10 @@ export default {
 
   async scheduled(controller, env, ctx): Promise<void> {
     const schedule = scheduleFor(controller.cron);
+    if (!schedule) {
+      console.error(`"${controller.cron}" is neither weekly nor monthly, so nothing ran`);
+      return;
+    }
     ctx.waitUntil(runBatch(env, schedule));
     if (schedule === "weekly") ctx.waitUntil(pullReviews(env));
   },

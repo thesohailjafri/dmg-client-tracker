@@ -3,12 +3,11 @@ import { z } from "zod";
 
 // Prototype schemas. Nothing here is migrated — change freely, old docs just lack new fields.
 
-export const SCHEDULES = ["daily", "weekly", "monthly"] as const;
+export const SCHEDULES = ["weekly", "monthly"] as const;
 export type Schedule = (typeof SCHEDULES)[number];
 
 // Reporting window (days) covered by each kind of report.
 export const PERIOD_DAYS: Record<Schedule, number> = {
-  daily: 1,
   weekly: 7,
   monthly: 30,
 };
@@ -191,7 +190,7 @@ export type AiLogDoc = {
   clientId: ObjectId;
   clientName: string;
   trigger: "manual" | "cron";
-  period: Schedule; // which report this was: daily, weekly or monthly
+  period: Schedule; // which report this was. Logs from when there was a daily report say "daily"
   status: "ok" | "failed";
   error?: string;
   screenshotId?: ObjectId;
