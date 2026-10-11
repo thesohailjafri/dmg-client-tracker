@@ -99,11 +99,10 @@ export function ClientActions({
         </p>
       )}
 
-      {/* the review link is edited in Settings, where the client form lives */}
       <ReviewQrDialog
         client={dialog === "qr" ? client : null}
         onClose={() => setDialog(null)}
-        onEdit={() => router.push("/settings")}
+        onEdit={() => router.push(`/clients/${client.id}/edit`)}
       />
       <ReviewBannerDialog
         client={dialog === "banner" ? client : null}

@@ -16,6 +16,8 @@ import {
   type GbpSnapshotView,
 } from "@/lib/data";
 import { formatDate, formatDay, type KeyNumber } from "@/lib/format";
+import { LEAD_LABELS } from "@/lib/leads";
+import { formatPhone } from "@/lib/phone";
 import { umamiWebsiteUrl } from "@/lib/umami";
 
 export default function ClientOverviewPage({ params }: PageProps<"/clients/[id]">) {
@@ -35,7 +37,7 @@ async function Overview({ id }: { id: string }) {
   if (!client) return null;
 
   const [analytics, gbp] = await Promise.all([listAnalyticsSnapshots(id), listGbpSnapshots(id)]);
-  const traffic = analytics[0];
+  const traffic = analytics.snapshots[0];
   const profile = profileNumbers(gbp);
 
   return (
@@ -81,6 +83,19 @@ async function Overview({ id }: { id: string }) {
                 : "No Umami website is connected for this client."
             }
           />
+          {client.leadTypes.length > 0 && (
+            <Figures
+              title="Website leads"
+              href={`/clients/${client.id}/analytics`}
+              caption={
+                traffic &&
+                traffic.leads.length > 0 &&
+                "Same period as the traffic above. Taps and opens are counted, not the call, message or chat itself."
+              }
+              numbers={traffic?.leads ?? []}
+              empty="No leads recorded yet. Run a report to take the first count."
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -125,7 +140,7 @@ function Figures({
 }: {
   title: string;
   href: string;
-  caption?: string;
+  caption?: string | false;
   numbers: KeyNumber[];
   // shown when there is nothing to say at all
   empty: string;
@@ -161,8 +176,8 @@ function Details({ client }: { client: ClientView }) {
       <CardHeader>
         <CardTitle>Business details</CardTitle>
         <CardAction>
-          <Link href="/settings" className="text-sm text-primary hover:underline">
-            Edit in Settings
+          <Link href={`/clients/${client.id}/edit`} className="text-sm text-primary hover:underline">
+            Edit
           </Link>
         </CardAction>
       </CardHeader>
@@ -207,7 +222,7 @@ function Details({ client }: { client: ClientView }) {
                   <div key={index}>
                     {contact.name} ·{" "}
                     <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} className="hover:underline">
-                      {contact.phone}
+                      {formatPhone(contact.phone)}
                     </a>
                   </div>
                 ))}
@@ -217,6 +232,9 @@ function Details({ client }: { client: ClientView }) {
           </Detail>
           <Detail label="Website analytics">
             {client.umamiWebsiteId ? "Umami connected" : <span className="text-muted-foreground">Not connected</span>}
+          </Detail>
+          <Detail label="Leads in the report">
+            {client.leadTypes.length > 0 ? client.leadTypes.map((type) => LEAD_LABELS[type]).join(", ") : NONE}
           </Detail>
           <Detail label="Last run">
             <div className="flex flex-wrap items-center gap-2">

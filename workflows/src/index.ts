@@ -103,7 +103,7 @@ async function capture(env: Env, input: ScreenshotRequest) {
   }
 }
 
-// "0 6 1 * *" -> monthly, "10 6 * * MON" -> weekly, anything else -> daily.
+// "50 13 1 * *" -> monthly, "40 13 * * MON" -> weekly, anything else -> daily.
 // Derived from the cron expression so times can change in wrangler.toml without touching code.
 function scheduleFor(cron: string): "daily" | "weekly" | "monthly" {
   const [, , dayOfMonth, , dayOfWeek] = cron.trim().split(/\s+/);

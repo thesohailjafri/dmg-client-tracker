@@ -8,9 +8,10 @@ const TABS = [
   { path: "", label: "Overview" },
   { path: "/analytics", label: "Analytics" },
   { path: "/google-profile", label: "Google profile" },
+  { path: "/edit", label: "Edit" },
 ];
 
-// The three sections of a client page. Each is its own URL, so a tab can be linked to.
+// The sections of a client page. Each is its own URL, so a tab can be linked to.
 export function ClientTabs({ clientId }: { clientId: string }) {
   const pathname = usePathname();
 

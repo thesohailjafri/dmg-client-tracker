@@ -22,6 +22,7 @@ Rules:
 - If the screenshot shows a consent screen, an error or a blocked page instead of the listing, say so in screenshotFindings and base the rest on the traffic numbers alone.
 - The screenshot is taken signed out, and Google often shows a "limited view" that hides the review count, the reviews themselves and most photos. Something not visible in the screenshot is not evidence that the listing lacks it: never report a missing review count, missing reviews or few photos as a problem, and never mention the limited view or the sign-in prompts.
 - When the facts include googleRecords, its rating and review count come from Google's own records: use them in the report, even when the screenshot hides them or shows something else. The listing fields below still describe only what the screenshot shows.
+- When the facts include leads, they count what visitors did on the website in this period (current) and the one before it (previous): taps on the call, text or WhatsApp button, chat widget opens, forms started and completed, booking pages opened, bookings made. These matter most to the owner, so work them into the summary and the insights. A tap on a call, text or WhatsApp button is not a call or message that happened: use the labels as given and never call them "calls", "texts" or "WhatsApp messages". An opened chat widget is not a conversation either. When every previous figure is 0, tracking may have only just started: do not describe that as growth.
 - The blue bar at the bottom is our own watermark. Ignore it.
 - Google picks the page's language from where the screenshot was taken, so its buttons, labels and the business category may be in a language the business does not use. That is not the client's doing and not a problem with the listing: read through it, write everything in English, and never mention the language or quote the foreign wording.
 - screenshotFindings: 2-4 sentences on what is visible (position in results, rating, review count, photos, missing info).
@@ -86,6 +87,8 @@ export type InsightInput = {
     topPages: MetricRow[];
     topReferrers: MetricRow[];
   } | null;
+  // What visitors did on the website in the period and the one before it. Empty = none tracked.
+  leads: { label: string; current: number; previous: number }[];
   // Google's own rating and review count from the Places API, when it is connected.
   google: { rating: number | null; reviewCount: number | null } | null;
   image: { base64: string; contentType: string };
@@ -101,6 +104,7 @@ export async function generateInsights(input: InsightInput): Promise<{
     url: input.url,
     periodDays: input.periodDays,
     traffic: input.metrics ?? "No website traffic data is connected for this client.",
+    ...(input.leads.length > 0 && { leads: input.leads }),
     ...(input.google && { googleRecords: input.google }),
   };
 

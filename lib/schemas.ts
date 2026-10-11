@@ -13,6 +13,11 @@ export const PERIOD_DAYS: Record<Schedule, number> = {
   monthly: 30,
 };
 
+// What a visitor can do on a client's website that counts as a lead. Each is ticked per client, and
+// only the ticked ones go in that client's report. Counted from Umami events: see lib/leads.ts.
+export const LEAD_TYPES = ["calls", "texts", "whatsapp", "chat", "forms", "bookings"] as const;
+export type LeadType = (typeof LEAD_TYPES)[number];
+
 export const contactInput = z.object({
   name: z.string().trim().min(1, "Each contact needs a name").max(120),
   phone: z.string().trim().regex(/^\+?[\d\s().-]{5,30}$/, "Enter a valid phone number"),
@@ -34,6 +39,11 @@ export const clientInput = z.object({
   // case the search matched the wrong business. Empty = look it up on the next run.
   googlePlaceId: z.string().trim().max(300).optional().default(""),
   umamiWebsiteId: z.string().trim().max(64).optional().default(""),
+  // Which leads this client's site tracks and its report shows. Empty = no leads in the report.
+  leadTypes: z
+    .array(z.enum(LEAD_TYPES))
+    .default([])
+    .transform((list) => LEAD_TYPES.filter((type) => list.includes(type))),
   // A client can be on several schedules at once (e.g. weekly + monthly). Empty = manual runs only.
   schedules: z
     .array(z.enum(SCHEDULES))
@@ -121,8 +131,18 @@ export type MetricsDoc = {
   previous: MetricTotals;
   topPages: MetricRow[];
   topReferrers: MetricRow[];
+  // Absent on pulls from before events were read.
+  events?: EventCounts;
+  forms?: FormCounts;
   fetchedAt: Date;
 };
+
+// Every custom event Umami recorded, by event name, in the period and in the one before it.
+export type EventCounts = { current: MetricRow[]; previous: MetricRow[] };
+
+// The form events of the period split by form: how many started and submitted each one, and how
+// many reached each step where a form reports its steps.
+export type FormCounts = { started: MetricRow[]; submitted: MetricRow[]; steps: MetricRow[] };
 
 export const aiOutput = z.object({
   screenshotFindings: z.string(),

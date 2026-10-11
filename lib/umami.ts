@@ -1,4 +1,5 @@
 import { env } from "./env";
+import { EVENTS } from "./leads";
 import type { MetricRow, MetricTotals } from "./schemas";
 
 // Umami REST client. Works with self-hosted (Bearer token) and Umami Cloud (x-umami-api-key).
@@ -74,9 +75,11 @@ function totals(raw: RawStats, which: "current" | "previous"): MetricTotals {
   };
 }
 
+type Range = { startAt: number; endAt: number };
+
 async function topRows(
   websiteId: string,
-  range: { startAt: number; endAt: number },
+  range: Range,
   types: string[],
 ): Promise<MetricRow[]> {
   // The page metric is "path" on Umami v3 and "url" on v2 — try each in order.
@@ -94,15 +97,60 @@ async function topRows(
   return [];
 }
 
+// Every custom event in a range, by event name. Not caught: a report must not show a client zero
+// leads because the request failed.
+async function eventCounts(websiteId: string, range: Range): Promise<MetricRow[]> {
+  const rows = await get<{ x: string | null; y: number }[]>(`/websites/${websiteId}/metrics`, {
+    ...range,
+    type: "event",
+    limit: 200,
+  });
+  return rows.flatMap((row) => (row.x ? [{ name: row.x, count: Number(row.y) }] : []));
+}
+
+// One event's count split by one of its properties, e.g. form_start by `form`. Extra detail for the
+// dashboard only, so an Umami that answers differently just leaves it empty.
+async function eventBreakdown(
+  websiteId: string,
+  range: Range,
+  eventName: string,
+  propertyName: string,
+): Promise<MetricRow[]> {
+  try {
+    const rows = await get<{ value: string | number | null; total: number }[]>(
+      `/websites/${websiteId}/event-data/values`,
+      { ...range, eventName, propertyName },
+    );
+    return rows.flatMap((row) =>
+      row.value === null || row.value === "" ? [] : [{ name: String(row.value), count: Number(row.total) }],
+    );
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchUmamiMetrics(websiteId: string, periodDays: number) {
   const periodEnd = new Date();
   const periodStart = new Date(periodEnd.getTime() - periodDays * 86_400_000);
   const range = { startAt: periodStart.getTime(), endAt: periodEnd.getTime() };
+  // the same window /stats compares against
+  const before = { startAt: range.startAt - periodDays * 86_400_000, endAt: range.startAt };
 
-  const [stats, topPages, topReferrers] = await Promise.all([
+  const [stats, topPages, topReferrers, current, previous] = await Promise.all([
     get<RawStats>(`/websites/${websiteId}/stats`, range),
     topRows(websiteId, range, ["path", "url"]),
     topRows(websiteId, range, ["referrer"]),
+    eventCounts(websiteId, range),
+    eventCounts(websiteId, before),
+  ]);
+
+  // Only sites with forms send these, so only they pay for the three extra requests.
+  const split = (event: string, property: string) =>
+    current.some((row) => row.name === event) ? eventBreakdown(websiteId, range, event, property) : [];
+  const [started, submitted, steps] = await Promise.all([
+    split(EVENTS.formStart, "form"),
+    split(EVENTS.formSubmit, "form"),
+    split(EVENTS.formStep, "step"),
   ]);
 
   return {
@@ -113,5 +161,7 @@ export async function fetchUmamiMetrics(websiteId: string, periodDays: number) {
     previous: totals(stats, "previous"),
     topPages,
     topReferrers,
+    events: { current, previous },
+    forms: { started, submitted, steps },
   };
 }

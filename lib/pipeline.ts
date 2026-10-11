@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
 import { renderReportEmail, sendReportEmail } from "./email";
 import { formatDay, keyNumbers, periodLabel } from "./format";
+import { leadFigures } from "./leads";
 import { collections } from "./mongodb";
 import { generateInsights, OPENAI_MODEL } from "./openai";
 import { fetchPlace, findPlaceId, placesEnabled } from "./places";
@@ -73,6 +74,15 @@ export async function runReport(
       });
     }
 
+    // Only the leads ticked for this client reach the AI and the email: the raw events stay out.
+    const leads = leadFigures(client.leadTypes ?? [], umami?.events);
+    const traffic = umami && {
+      current: umami.current,
+      previous: umami.previous,
+      topPages: umami.topPages,
+      topReferrers: umami.topReferrers,
+    };
+
     const image = await getObject(capture.key);
     const base64 = image.body.toString("base64");
 
@@ -80,7 +90,8 @@ export async function runReport(
       clientName: client.name,
       url: client.url,
       periodDays,
-      metrics: umami,
+      metrics: traffic,
+      leads: leads.map(({ label, current, previous }) => ({ label, current, previous })),
       google:
         known && "place" in known
           ? { rating: known.place.rating, reviewCount: known.place.reviewCount }
@@ -116,6 +127,7 @@ export async function runReport(
           period,
           dateRange: `${formatDay(start)} – ${formatDay(end)}`,
           numbers: umami ? keyNumbers(umami.current, umami.previous) : [],
+          leads,
           topPages: umami?.topPages ?? [],
           topReferrers: umami?.topReferrers ?? [],
           ai: ai.output,

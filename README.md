@@ -29,12 +29,15 @@ code path in `lib/pipeline.ts`, used by both the cron and the dashboard's **Run*
 | Path | What |
 | --- | --- |
 | `app/dashboard` | Clients, manual runs, recent reports |
-| `app/clients/[id]` | One client: Overview, `/analytics` (Umami snapshots), `/google-profile` (screenshots + AI note) |
-| `app/settings` | Add / edit / delete clients, URL, recipients, schedule |
+| `app/clients/[id]` | One client: Overview, `/analytics` (Umami snapshots), `/google-profile` (screenshots + AI note), `/edit` (the client form) |
+| `app/settings` | The client list: activate, delete, review kit shortcuts |
+| `app/clients/new` | The new client form; saving opens that client's page |
 | `app/api` | `clients`, `reports/run`, `cron/due`, `screenshots/[id]`, `auth/login` |
 | `lib/pipeline.ts` | The report run |
 | `lib/umami.ts` `openai.ts` `r2.ts` `playwright.ts` `email.ts` `mongodb.ts` | One client per service |
+| `lib/leads.ts` | Lead event names and the lead rows of a report |
 | `lib/schemas.ts` | Collection types + input validation |
+| `tracking/umami-events.tsx` | Not part of this app: the file copied into each client site to send lead events |
 | `proxy.ts` | Auth gate (Next.js 16 name for middleware) |
 | `workflows/` | Cloudflare Worker + `wrangler.toml` |
 
@@ -42,12 +45,47 @@ code path in `lib/pipeline.ts`, used by both the cron and the dashboard's **Run*
 
 | Collection | One document per | Key fields |
 | --- | --- | --- |
-| `clients` | client | `name`, `emails[]`, `contacts[]` (`name`, `phone`), `url` (Maps share link), `googleReviewUrl`, `googlePlaceId`, `umamiWebsiteId`, `schedules[]`, `active`, `lastRunAt`, `lastStatus`, `lastError` |
+| `clients` | client | `name`, `emails[]`, `contacts[]` (`name`, `phone`), `url` (Maps share link), `googleReviewUrl`, `googlePlaceId`, `umamiWebsiteId`, `leadTypes[]`, `schedules[]`, `active`, `lastRunAt`, `lastStatus`, `lastError` |
 | `screenshots` | capture | `clientId`, `url`, `r2Key`, `bytes`, `capturedAt`, `note` (AI's fixed fields: `state`, `rating`, `reviewCount`, `category`, `address`, `phone`, `website`, `hoursShown`, `language`), `place` (Places API: `placeId`, `name`, `address`, `rating`, `reviewCount`), `placeError` |
-| `metrics` | Umami pull | `clientId`, `websiteId`, `periodStart/End`, `current`, `previous`, `topPages`, `topReferrers` |
+| `metrics` | Umami pull | `clientId`, `websiteId`, `periodStart/End`, `current`, `previous`, `topPages`, `topReferrers`, `events` (every event name: `current`, `previous`), `forms` (`started`, `submitted`, `steps`) |
 | `ai_logs` | pipeline run | `clientId`, `trigger`, `period`, `status`, `error`, `screenshotId`, `metricsId`, `model`, `output`, `usage`, `email` |
 
 Indexes are created on first connection. There are no migrations.
+
+## Lead tracking
+
+Besides traffic, a report can count what visitors did on the client's site. The site sends Umami
+events; the report run reads them with the traffic numbers.
+
+| Event | Sent when | Lead type |
+| --- | --- | --- |
+| `call_click` | a `tel:` link is tapped | Call taps |
+| `sms_click` | an `sms:` link is tapped | Text taps |
+| `whatsapp_click` | a WhatsApp link is tapped (`wa.me`, `api.whatsapp.com`, `whatsapp:`) | WhatsApp taps |
+| `chat_open` | the chat widget is opened, once per page load (from the chat provider's own callback) | Chat opens |
+| `form_start` | a form is first touched (`form` property = the form's name) | Forms |
+| `form_submit` | a form is completed (`form` property) | Forms |
+| `book_click` | the visitor is sent to the booking page | Bookings |
+| `book_complete` | a booking is made in an embedded Cal.com calendar | Bookings |
+| `form_step` | a later step of a form is reached (`step` property) | none, dashboard only |
+
+1. **In this app:** edit the client and tick the lead types its site tracks under **Leads in the
+   report**. The form then lists the event names for those types and a prompt to copy.
+2. **On the client site:** paste that prompt into the AI agent working in the site's codebase. It
+   gives the goal, the event names and their properties, and leaves the build to the agent, since
+   sites differ. `tracking/umami-events.tsx` is a ready-made version for Next.js / React sites, for
+   doing it by hand. Either way the event names are the same on every site.
+
+Only ticked types reach the email and the AI. A ticked type with nothing recorded shows as 0, and
+the Analytics tab warns when a ticked type has never had an event.
+
+The client's Analytics tab also lists each form (started against completed), form steps and every
+event name Umami recorded, ticked or not. Those never go in the email.
+
+A tap or an opened chat widget is counted, not the call, message or conversation itself, and the report wording
+says so. `book_complete` only exists where the calendar is embedded on the site: a plain link to
+cal.com can only be counted as "Booking page opened". Never put names, emails or phone numbers in
+event data.
 
 ## Local setup
 
@@ -166,9 +204,9 @@ Defined in `workflows/wrangler.toml`, all UTC:
 ```toml
 [triggers]
 crons = [
-  "0 6 * * *",    # daily   06:00
-  "10 6 * * MON", # weekly  Monday 06:10
-  "20 6 1 * *",   # monthly 1st 06:20
+  "30 13 * * *",   # daily   13:30 (7:00 PM IST)
+  "40 13 * * MON", # weekly  Monday 13:40
+  "50 13 1 * *",   # monthly 1st 13:50
 ]
 ```
 
@@ -178,7 +216,7 @@ freely. Examples:
 
 | Want | Cron |
 | --- | --- |
-| Daily at 13:30 UTC | `30 13 * * *` |
+| Daily at 06:00 UTC | `0 6 * * *` |
 | Weekly on Friday 09:00 UTC | `0 9 * * FRI` |
 | Monthly on the 15th 07:00 UTC | `0 7 15 * *` |
 | Weekdays only | not supported as "daily" — a day-of-week value is treated as `weekly` |

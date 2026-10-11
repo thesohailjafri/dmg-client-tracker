@@ -49,8 +49,8 @@ function Clients({ clients }: { clients: ClientView[] }) {
         {clients.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No clients yet.{" "}
-            <Link href="/settings" className="text-primary hover:underline">
-              Add one in Settings
+            <Link href="/clients/new" className="text-primary hover:underline">
+              Add the first one
             </Link>
             .
           </p>

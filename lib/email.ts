@@ -33,6 +33,7 @@ export type ReportEmail = {
   period: string; // "Weekly"
   dateRange: string; // "Oct 2 – Oct 9, 2026"
   numbers: KeyNumber[]; // empty when no Umami site is connected
+  leads: KeyNumber[]; // empty when no leads are ticked for the client
   topPages: MetricRow[];
   topReferrers: MetricRow[];
   ai: AiOutput;
@@ -40,16 +41,23 @@ export type ReportEmail = {
 
 // Plain HTML + inline CSS only. The screenshot is attached inline and referenced as cid:screenshot.
 export function renderReportEmail(report: ReportEmail): string {
-  const numbers = report.numbers.length
-    ? `${heading("Key numbers")}<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${report.numbers
-        .map(
-          (n) =>
-            `<tr><td style="padding:10px 0;font-size:15px;color:${MUTED};border-bottom:1px solid ${BORDER};">${n.label}</td><td align="right" style="padding:10px 0;border-bottom:1px solid ${BORDER};"><span style="font-size:20px;font-weight:600;color:${TEXT};">${n.value}</span>${
-              n.change ? `<span style="font-size:13px;color:${MUTED};">&nbsp;&nbsp;${n.change}</span>` : ""
-            }</td></tr>`,
-        )
-        .join("")}</table><p style="margin:8px 0 0;font-size:12px;color:${MUTED};">Change is versus the previous period.</p>`
-    : "";
+  const figures = (title: string, numbers: KeyNumber[], note: string) =>
+    numbers.length
+      ? `${heading(title)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${numbers
+          .map(
+            (n) =>
+              `<tr><td style="padding:10px 0;font-size:15px;color:${MUTED};border-bottom:1px solid ${BORDER};">${n.label}</td><td align="right" style="padding:10px 0;border-bottom:1px solid ${BORDER};"><span style="font-size:20px;font-weight:600;color:${TEXT};">${n.value}</span>${
+                n.change ? `<span style="font-size:13px;color:${MUTED};">&nbsp;&nbsp;${n.change}</span>` : ""
+              }</td></tr>`,
+          )
+          .join("")}</table><p style="margin:8px 0 0;font-size:12px;color:${MUTED};">${note}</p>`
+      : "";
+  const numbers = figures("Key numbers", report.numbers, "Change is versus the previous period.");
+  const leads = figures(
+    "Leads from your website",
+    report.leads,
+    "What visitors did on your website. Change is versus the previous period.",
+  );
 
   return `<!doctype html>
 <html lang="en">
@@ -64,6 +72,7 @@ export function renderReportEmail(report: ReportEmail): string {
 <p style="margin:4px 0 0;font-size:14px;color:${MUTED};">${report.period} report &middot; ${escape(report.dateRange)}</p>
 <p style="margin:24px 0 0;font-size:16px;line-height:1.5;color:${TEXT};">${escape(report.ai.summary)}</p>
 ${numbers}
+${leads}
 ${heading("What we see")}
 ${list(report.ai.insights)}
 ${heading("What we recommend")}
