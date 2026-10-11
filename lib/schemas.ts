@@ -127,7 +127,7 @@ export const clientInput = z.object({
     .array(z.enum(SCHEDULES))
     .default([])
     .transform((list) => SCHEDULES.filter((schedule) => list.includes(schedule))),
-  // The order of the sections on the Graphs tab and the client's graphs link.
+  // The order of the sections on the Report tab and the client's graphs link.
   graphOrder: z.array(z.enum(GRAPH_SECTIONS)).default([]).transform(graphOrder),
   active: z.boolean().default(true),
 });

@@ -649,7 +649,7 @@ export function ClientForm({
               ))}
             </ol>
             <p className="text-xs text-muted-foreground">
-              Use the arrows to put what this client cares about most at the top. The Graphs tab and the
+              Use the arrows to put what this client cares about most at the top. The Report tab and the
               client&apos;s link both follow this order.
             </p>
           </div>

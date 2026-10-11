@@ -7,17 +7,17 @@ import { getClient, requireSession } from "@/lib/data";
 import { loadGraphs } from "@/lib/graph-data";
 import { parseRange } from "@/lib/graphs";
 
-export default function ClientGraphsPage({ params, searchParams }: PageProps<"/clients/[id]/graphs">) {
+export default function ClientReportPage({ params, searchParams }: PageProps<"/clients/[id]/report">) {
   return (
     <Suspense fallback={<Loader />}>
       {Promise.all([params, searchParams]).then(([{ id }, query]) => (
-        <ClientGraphs id={id} range={query.range} />
+        <ClientReport id={id} range={query.range} />
       ))}
     </Suspense>
   );
 }
 
-async function ClientGraphs({ id, range }: { id: string; range: unknown }) {
+async function ClientReport({ id, range }: { id: string; range: unknown }) {
   await requireSession();
   const client = await getClient(id);
   // the layout above already says the client was not found
@@ -26,14 +26,15 @@ async function ClientGraphs({ id, range }: { id: string; range: unknown }) {
 
   return (
     <>
-      <Graphs data={data} basePath={`/clients/${client.id}/graphs`} audience="team" />
+      <Graphs data={data} basePath={`/clients/${client.id}/report`} audience="team" />
 
       <Card>
         <CardHeader>
           <CardTitle>Client link</CardTitle>
           <CardDescription>
-            A read-only page of these graphs for the client, with no sign-in. Anyone with the link can
-            open it, and it shows nothing else about the client.
+            A read-only page for the client, with no sign-in: this report, and an overview with their
+            business name, website, Google links, review QR code and directories. Anyone with the link
+            can open it. Recipients, contacts and settings are never on it.
           </CardDescription>
         </CardHeader>
         <CardContent>

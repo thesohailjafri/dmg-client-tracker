@@ -1,4 +1,4 @@
-// The shapes and arithmetic behind the Graphs tab and the client's read-only link. Nothing here
+// The shapes and arithmetic behind the Report tab and the client's read-only link. Nothing here
 // reads data (see lib/graph-data.ts), so the chart component can import it in the browser.
 
 import type { GraphSectionKey } from "./schemas";

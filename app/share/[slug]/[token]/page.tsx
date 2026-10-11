@@ -1,19 +1,29 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { Graphs } from "@/components/graphs";
 import { Loader } from "@/components/loader";
 import { Logo } from "@/components/logo";
-import { getSharedClient } from "@/lib/data";
+import { sharedDetails, ShareOverview } from "@/components/share-overview";
+import { getSharedClient, type ClientView } from "@/lib/data";
 import { loadGraphs } from "@/lib/graph-data";
 import { parseRange, sharePath } from "@/lib/graphs";
+import { cn } from "@/lib/utils";
 
-// A client's read-only graphs, opened from a link the team sends them. No sign-in: proxy.ts lets
+// A client's read-only page, opened from a link the team sends them: the Report tab with their
+// graphs, and the Overview tab (?tab=overview) with their business details. No sign-in: proxy.ts lets
 // /share/ through and the token in the address is the permission. The business name before it is
 // only there to make the link recognisable: it is never used to find the client, and an out-of-date
-// one is redirected to the current name. Only graphs are rendered here, so nothing else about the
-// client (emails, contacts, notes) can reach the page.
+// one is redirected to the current name. Only the graphs and `sharedDetails` are rendered here, so
+// nothing else about the client (emails, contacts, IDs, run status) can reach the page.
+
+const TABS = [
+  { key: "report", label: "Report", lead: "How your website and Google profile are growing." },
+  { key: "overview", label: "Overview", lead: "Your business details, as we have them on file." },
+] as const;
+type Tab = (typeof TABS)[number]["key"];
 
 const AGENCY = process.env.AGENCY_NAME || "DMG";
 
@@ -43,22 +53,28 @@ export default function SharePage({ params, searchParams }: PageProps<"/share/[s
     <div className="mx-auto w-full max-w-5xl px-6 pb-24 max-sm:px-4">
       <Suspense fallback={<Loader className="pt-24" />}>
         {Promise.all([params, searchParams]).then(([{ slug, token }, query]) => (
-          <Shared slug={slug} token={token} range={query.range} />
+          <Shared
+            slug={slug}
+            token={token}
+            tab={query.tab === "overview" ? "overview" : "report"}
+            range={query.range}
+          />
         ))}
       </Suspense>
     </div>
   );
 }
 
-async function Shared({ slug, token, range }: { slug: string; token: string; range: unknown }) {
+async function Shared({ slug, token, tab, range }: { slug: string; token: string; tab: Tab; range: unknown }) {
   // Live data on every visit, never a prerender.
   await connection();
   const client = await getSharedClient(token);
 
   // A link sent before the business was renamed still opens: the token finds the client, and the
-  // address moves on to the current name.
+  // address moves on to the current name, on the same tab and range.
   const path = client && sharePath(client.name, token);
   if (path && path !== `/share/${slug}/${token}`) {
+    if (tab === "overview") redirect(`${path}?tab=overview`);
     redirect(typeof range === "string" ? `${path}?range=${parseRange(range)}` : path);
   }
 
@@ -77,7 +93,7 @@ async function Shared({ slug, token, range }: { slug: string; token: string; ran
     );
   }
 
-  const data = await loadGraphs(client, parseRange(range));
+  const basePath = sharePath(client.name, token);
   return (
     <>
       <header className="pt-10 pb-8">
@@ -93,10 +109,36 @@ async function Shared({ slug, token, range }: { slug: string; token: string; ran
           </a>
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">{client.name}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">How your website and Google profile are growing.</p>
+        <p className="mt-1 text-sm text-muted-foreground">{TABS.find((item) => item.key === tab)?.lead}</p>
+        <nav aria-label="Sections" className="mt-6 flex gap-1 border-b">
+          {TABS.map((item) => (
+            <Link
+              key={item.key}
+              href={item.key === "report" ? basePath : `${basePath}?tab=${item.key}`}
+              aria-current={item.key === tab ? "page" : undefined}
+              className={cn(
+                "-mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium whitespace-nowrap text-muted-foreground hover:text-foreground max-sm:px-2",
+                item.key === tab && "border-primary text-primary hover:text-primary",
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       </header>
       <main className="flex flex-col gap-8">
-        <Graphs data={data} basePath={sharePath(client.name, token)} audience="client" />      </main>
+        {tab === "overview" ? (
+          <ShareOverview details={sharedDetails(client)} />
+        ) : (
+          <SharedReport client={client} basePath={basePath} range={range} />
+        )}
+      </main>
     </>
   );
+}
+
+// The graphs are read only on the Report tab: they wait on Umami, which the Overview has no use for.
+async function SharedReport({ client, basePath, range }: { client: ClientView; basePath: string; range: unknown }) {
+  const data = await loadGraphs(client, parseRange(range));
+  return <Graphs data={data} basePath={basePath} audience="client" />;
 }

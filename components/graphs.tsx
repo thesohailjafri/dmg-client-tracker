@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatValue, type GraphBucket, type GraphSection, type GraphsData } from "@/lib/graphs";
 
 // The graphs for one client and one range: the range picker, then a card per kind of figure.
-// Shown on the team's Graphs tab and, with `audience="client"`, on the client's read-only link,
+// Shown on the team's Report tab and, with `audience="client"`, on the client's read-only link,
 // where a section with nothing to draw is left out instead of explaining how to set it up.
 export function Graphs({
   data,

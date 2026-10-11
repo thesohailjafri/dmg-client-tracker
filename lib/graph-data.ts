@@ -155,7 +155,7 @@ function reviewSection(client: GraphClient, readings: Reading[], list: Period[],
   };
 }
 
-// Everything the Graphs tab draws for one client and one range.
+// Everything the Report tab draws for one client and one range.
 export async function loadGraphs(client: GraphClient, rangeKey: RangeKey): Promise<GraphsData> {
   const range = RANGES.find((option) => option.key === rangeKey)!;
   const now = Date.now();
