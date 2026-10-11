@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
 import {
   bucketLabels,
+  GRAPH_SECTION_LABELS,
   monthsSince,
   periods,
   RANGES,
@@ -12,7 +13,7 @@ import {
 } from "./graphs";
 import { leadSeries } from "./leads";
 import { collections } from "./mongodb";
-import type { LeadType, MetricTotals } from "./schemas";
+import type { GraphSectionKey, LeadType, MetricTotals } from "./schemas";
 import { fetchUmamiBucket, fetchUmamiStart } from "./umami";
 
 // What the graphs need to know about a client. The team's tab and the client's link both pass this.
@@ -21,6 +22,8 @@ export type GraphClient = {
   umamiWebsiteId: string;
   googlePlaceId: string;
   leadTypes: LeadType[];
+  // the order this client's sections are shown in
+  graphOrder: GraphSectionKey[];
 };
 
 // Weeks or months asked of Umami at once. Each is two requests.
@@ -62,7 +65,7 @@ async function reviewReadings(clientId: string): Promise<Reading[]> {
 }
 
 async function trafficSections(client: GraphClient, list: Period[], unit: string): Promise<GraphSection[]> {
-  const section = { key: "traffic", title: "Website traffic", note: "", series: [] };
+  const section = { key: "traffic" as const, title: GRAPH_SECTION_LABELS.traffic, note: "", series: [] };
   if (!client.umamiWebsiteId) {
     return [
       {
@@ -103,7 +106,7 @@ async function trafficSections(client: GraphClient, list: Period[], unit: string
   if (client.leadTypes.length > 0) {
     sections.push({
       key: "leads",
-      title: "Website leads",
+      title: GRAPH_SECTION_LABELS.leads,
       note: "What visitors did on the website. Taps and opens are counted, not the call, message or chat itself.",
       series: leadSeries(
         client.leadTypes,
@@ -138,7 +141,7 @@ function reviewSection(client: GraphClient, readings: Reading[], list: Period[],
 
   return {
     key: "reviews",
-    title: "Google reviews",
+    title: GRAPH_SECTION_LABELS.reviews,
     note: `Google's own figures, read every Monday and on each report run. Each point is the last reading in that ${unit}.`,
     series: drawn
       ? [
@@ -168,10 +171,13 @@ export async function loadGraphs(client: GraphClient, rangeKey: RangeKey): Promi
 
   const list = periods(range.unit, finished, now);
   const traffic = await trafficSections(client, list, range.unit);
+  const sections = [...traffic, reviewSection(client, readings, list, range.unit)];
+  // in the order set for this client on its Edit tab
+  const place = (section: GraphSection) => client.graphOrder.indexOf(section.key);
   return {
     range: range.key,
     unit: range.unit,
     buckets: bucketLabels(range.unit, list),
-    sections: [...traffic, reviewSection(client, readings, list, range.unit)],
+    sections: sections.sort((a, b) => place(a) - place(b)),
   };
 }

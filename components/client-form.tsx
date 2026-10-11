@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckIcon, CopyIcon, ExternalLinkIcon, PlusIcon, XIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, CheckIcon, CopyIcon, ExternalLinkIcon, PlusIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import type { ClientView } from "@/lib/data";
+import { GRAPH_SECTION_LABELS } from "@/lib/graphs";
 import { LEAD_LABELS } from "@/lib/leads";
 import { DEFAULT_PHONE_COUNTRY, toE164 } from "@/lib/phone";
-import { LEAD_TYPES, SCHEDULES, type Contact, type LeadType } from "@/lib/schemas";
+import {
+  GRAPH_SECTIONS,
+  LEAD_TYPES,
+  SCHEDULES,
+  type Contact,
+  type GraphSectionKey,
+  type LeadType,
+} from "@/lib/schemas";
 import { SITE_EVENTS, trackingPrompt } from "@/lib/tracking-prompt";
 
 const BLANK_CONTACT: Contact = { name: "", phone: "" };
@@ -107,6 +115,18 @@ export function ClientForm({
   const [copied, setCopied] = useState(false);
   const prompt = trackingPrompt(leadTypes);
 
+  // the order of the sections on this client's graphs
+  const [graphOrder, setGraphOrder] = useState<GraphSectionKey[]>(client?.graphOrder ?? [...GRAPH_SECTIONS]);
+
+  // Swaps a section with the one above (-1) or below (+1) it.
+  function moveSection(index: number, by: -1 | 1) {
+    setGraphOrder((list) => {
+      const next = [...list];
+      [next[index], next[index + by]] = [next[index + by], next[index]];
+      return next;
+    });
+  }
+
   function setContact(index: number, patch: Partial<Contact>) {
     setContacts((list) => list.map((contact, i) => (i === index ? { ...contact, ...patch } : contact)));
   }
@@ -140,6 +160,7 @@ export function ClientForm({
       googlePlaceId: form.get("googlePlaceId"),
       umamiWebsiteId: form.get("umamiWebsiteId"),
       leadTypes,
+      graphOrder,
       schedules: form.getAll("schedules"),
       active: form.get("active") === "on",
     };
@@ -428,6 +449,53 @@ export function ClientForm({
                 </div>
               </div>
             )}
+          </div>
+        </Section>
+
+        <Section title="Graphs" description="What comes first on this client's graphs.">
+          <div role="group" aria-labelledby="graphOrder-label" className="flex flex-col gap-2">
+            <div id="graphOrder-label" className="text-sm leading-none font-medium">
+              Order of sections
+            </div>
+            <ol className="flex flex-col gap-2">
+              {graphOrder.map((key, index) => (
+                <li key={key} className="flex items-center gap-3 rounded-lg border border-input py-1 pr-1 pl-3">
+                  <span className="w-3 text-xs text-muted-foreground tabular-nums">{index + 1}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm">
+                    {GRAPH_SECTION_LABELS[key]}
+                    {key === "leads" && leadTypes.length === 0 && (
+                      <span className="text-muted-foreground"> (hidden: no leads ticked)</span>
+                    )}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground"
+                    aria-label={`Move ${GRAPH_SECTION_LABELS[key]} up`}
+                    disabled={index === 0}
+                    onClick={() => moveSection(index, -1)}
+                  >
+                    <ArrowUpIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground"
+                    aria-label={`Move ${GRAPH_SECTION_LABELS[key]} down`}
+                    disabled={index === graphOrder.length - 1}
+                    onClick={() => moveSection(index, 1)}
+                  >
+                    <ArrowDownIcon />
+                  </Button>
+                </li>
+              ))}
+            </ol>
+            <p className="text-xs text-muted-foreground">
+              Use the arrows to put what this client cares about most at the top. The Graphs tab and the
+              client&apos;s link both follow this order.
+            </p>
           </div>
         </Section>
       </div>

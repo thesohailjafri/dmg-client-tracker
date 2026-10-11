@@ -8,6 +8,7 @@ import { gbpChanges, keyNumbers, periodLabel, type KeyNumber } from "./format";
 import { formRows, leadFigures, silentLeadTypes, type FormRow } from "./leads";
 import { collections } from "./mongodb";
 import {
+  graphOrder,
   type AiOutput,
   type ClientDoc,
   type ClientInput,
@@ -103,6 +104,7 @@ function clientView(doc: ClientDoc): ClientView {
     googlePlaceId: doc.googlePlaceId ?? "",
     umamiWebsiteId: doc.umamiWebsiteId,
     leadTypes: doc.leadTypes ?? [],
+    graphOrder: graphOrder(doc.graphOrder),
     schedules: doc.schedules ?? [],
     active: doc.active,
     lastRunAt: doc.lastRunAt?.toISOString() ?? null,

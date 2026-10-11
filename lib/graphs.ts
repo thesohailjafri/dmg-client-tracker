@@ -1,7 +1,16 @@
 // The shapes and arithmetic behind the Graphs tab and the client's read-only link. Nothing here
 // reads data (see lib/graph-data.ts), so the chart component can import it in the browser.
 
+import type { GraphSectionKey } from "./schemas";
+
 export type GraphUnit = "week" | "month";
+
+// The sections as they are titled on the graphs and listed on the client form.
+export const GRAPH_SECTION_LABELS: Record<GraphSectionKey, string> = {
+  traffic: "Website traffic",
+  leads: "Website leads",
+  reviews: "Google reviews",
+};
 
 // The only control: how far back. Each range fixes its own grouping, so there is never a view with
 // too many points to read or too few to compare. `periods` counts finished weeks or months; the one
@@ -63,7 +72,7 @@ export type GraphSeries = {
 };
 
 export type GraphSection = {
-  key: string;
+  key: GraphSectionKey;
   title: string;
   note: string;
   series: GraphSeries[];

@@ -49,7 +49,7 @@ code path in `lib/pipeline.ts`, used by both the cron and the dashboard's **Run*
 
 | Collection | One document per | Key fields |
 | --- | --- | --- |
-| `clients` | client | `name`, `emails[]`, `contacts[]` (`name`, `phone`), `url` (Maps share link), `googleReviewUrl`, `googlePlaceId`, `umamiWebsiteId`, `leadTypes[]`, `schedules[]`, `active`, `shareToken` (the graphs link, absent = none), `lastRunAt`, `lastStatus`, `lastError` |
+| `clients` | client | `name`, `emails[]`, `contacts[]` (`name`, `phone`), `url` (Maps share link), `googleReviewUrl`, `googlePlaceId`, `umamiWebsiteId`, `leadTypes[]`, `graphOrder[]` (order of the graph sections), `schedules[]`, `active`, `shareToken` (the graphs link, absent = none), `lastRunAt`, `lastStatus`, `lastError` |
 | `reviews` | weekly Google reading | `clientId`, `placeId`, `rating`, `reviewCount`, `fetchedAt` |
 | `screenshots` | capture | `clientId`, `url`, `r2Key`, `bytes`, `capturedAt`, `note` (AI's fixed fields: `state`, `rating`, `reviewCount`, `category`, `address`, `phone`, `website`, `hoursShown`, `language`), `place` (Places API: `placeId`, `name`, `address`, `rating`, `reviewCount`), `placeError` |
 | `metrics` | Umami pull | `clientId`, `websiteId`, `periodStart/End`, `current`, `previous`, `topPages`, `topReferrers`, `events` (every event name: `current`, `previous`), `forms` (`started`, `submitted`, `steps`) |

@@ -18,6 +18,18 @@ export const PERIOD_DAYS: Record<Schedule, number> = {
 export const LEAD_TYPES = ["calls", "texts", "whatsapp", "chat", "forms", "bookings"] as const;
 export type LeadType = (typeof LEAD_TYPES)[number];
 
+// The sections of a client's graphs, in the default order. Each client can have its own order,
+// because one client cares most about Google reviews and the next about website traffic.
+export const GRAPH_SECTIONS = ["traffic", "leads", "reviews"] as const;
+export type GraphSectionKey = (typeof GRAPH_SECTIONS)[number];
+
+// A saved order made whole: every section once, anything missing (a client saved before this
+// existed, or before a section was added) after the ones that were placed.
+export function graphOrder(saved: readonly GraphSectionKey[] | undefined): GraphSectionKey[] {
+  const placed = [...new Set(saved ?? [])].filter((key) => GRAPH_SECTIONS.includes(key));
+  return [...placed, ...GRAPH_SECTIONS.filter((key) => !placed.includes(key))];
+}
+
 export const contactInput = z.object({
   name: z.string().trim().min(1, "Each contact needs a name").max(120),
   phone: z.string().trim().regex(/^\+?[\d\s().-]{5,30}$/, "Enter a valid phone number"),
@@ -49,6 +61,8 @@ export const clientInput = z.object({
     .array(z.enum(SCHEDULES))
     .default([])
     .transform((list) => SCHEDULES.filter((schedule) => list.includes(schedule))),
+  // The order of the sections on the Graphs tab and the client's graphs link.
+  graphOrder: z.array(z.enum(GRAPH_SECTIONS)).default([]).transform(graphOrder),
   active: z.boolean().default(true),
 });
 export type ClientInput = z.infer<typeof clientInput>;
