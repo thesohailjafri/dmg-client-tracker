@@ -139,9 +139,11 @@ export const clientActivePatch = z.strictObject({ active: z.boolean() });
 // collection: clients
 export type ClientDoc = ClientInput & {
   _id: ObjectId;
-  // The secret in this client's read-only graphs link (/share/<business-name>/<token>). Absent = no link.
-  // Set and reset by /api/clients/[id]/share, never by the client form.
+  // The secret in this client's read-only link (/share/<business-name>/<token>). Absent = no link.
+  // Made when the client is created, reset by /api/clients/[id]/share, never set by the client form.
   shareToken?: string;
+  // How the welcome email went when the client was created. Absent on clients from before it existed.
+  welcomeEmail?: EmailResult & { at: Date };
   lastRunAt?: Date;
   lastStatus?: "ok" | "failed";
   lastError?: string;

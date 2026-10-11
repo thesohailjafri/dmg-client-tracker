@@ -40,12 +40,12 @@ async function inBatches<T, R>(items: T[], run: (item: T) => Promise<R>): Promis
   return results;
 }
 
-type Reading = { at: number; rating: number | null; reviewCount: number | null };
+export type Reading = { at: number; rating: number | null; reviewCount: number | null };
 
 // Every time Google's own figures were read for this client, oldest first: the weekly pulls, and
 // the reading each report run keeps on its screenshot. What the AI read off a screenshot is left
 // out, because Google often hides the count there.
-async function reviewReadings(clientId: string): Promise<Reading[]> {
+export async function reviewReadings(clientId: string): Promise<Reading[]> {
   const { reviews, screenshots } = await collections();
   const id = new ObjectId(clientId);
   const [pulls, captures] = await Promise.all([

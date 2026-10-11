@@ -5,6 +5,7 @@ import { KeyNumbers } from "@/components/key-numbers";
 import { Loader } from "@/components/loader";
 import { RunButtons } from "@/components/run-buttons";
 import { ScheduleBadges } from "@/components/schedule-badges";
+import { SendWelcome } from "@/components/send-welcome";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -103,6 +104,8 @@ async function Overview({ id }: { id: string }) {
       <Details client={client} />
 
       <Directories client={client} />
+
+      <Emails client={client} />
     </>
   );
 }
@@ -172,6 +175,67 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
 }
 
 const NONE = <span className="text-muted-foreground">Not set</span>;
+
+// The emails this client gets, each openable exactly as it would arrive. Opening one sends nothing.
+function Emails({ client }: { client: ClientView }) {
+  const preview = (kind: "welcome" | "report") => `/api/emails/preview?clientId=${client.id}&kind=${kind}`;
+  const welcome = client.welcomeEmail;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Emails</CardTitle>
+        <CardDescription>
+          What this client is sent. A preview shows the email as it would arrive and sends nothing.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+          <Detail label="Welcome email">
+            {welcome === null ? (
+              <span className="text-muted-foreground">Not sent: added before there was one</span>
+            ) : welcome.status === "sent" ? (
+              // the addresses say whether it reached the client or the test inbox
+              <>
+                Sent to {welcome.to.join(", ")}
+                <span className="block text-xs text-muted-foreground">{formatDate(welcome.at)} UTC</span>
+              </>
+            ) : (
+              <span role="alert" className="text-destructive">
+                Not sent. {welcome.error}
+              </span>
+            )}
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <SendWelcome clientId={client.id} clientName={client.name} again={welcome?.status === "sent"} />
+              <a
+                href={preview("welcome")}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-primary hover:underline"
+              >
+                Preview welcome email
+              </a>
+            </div>
+          </Detail>
+          <Detail label="Report email">
+            {client.schedules.length > 0 && client.active ? (
+              <>Sent with every {client.schedules.join(" and ")} report</>
+            ) : (
+              <span className="text-muted-foreground">Only when a report is run and sent by hand</span>
+            )}
+            <a
+              href={preview("report")}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-1 block w-fit text-xs text-primary hover:underline"
+            >
+              Preview the latest report&apos;s email
+            </a>
+          </Detail>
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
 
 // Everywhere the business is listed besides its Google Maps profile, as saved on the Edit tab.
 function Directories({ client }: { client: ClientView }) {

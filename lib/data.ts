@@ -26,6 +26,9 @@ export type ClientView = ClientInput & {
   id: string;
   // The secret in the client's read-only graphs link, "" when there is no link.
   shareToken: string;
+  // How the welcome email went, null for a client from before there was one.
+  // `to` is where it actually went: the test inbox, not the client, while emails are rerouted.
+  welcomeEmail: { status: EmailResult["status"]; at: string; to: string[]; error: string } | null;
   lastRunAt: string | null;
   lastStatus: "ok" | "failed" | null;
   lastError: string;
@@ -97,6 +100,14 @@ function clientView(doc: ClientDoc): ClientView {
   return {
     id: doc._id.toString(),
     shareToken: doc.shareToken ?? "",
+    welcomeEmail: doc.welcomeEmail
+      ? {
+          status: doc.welcomeEmail.status,
+          at: doc.welcomeEmail.at.toISOString(),
+          to: doc.welcomeEmail.status === "sent" ? doc.welcomeEmail.to : [],
+          error: doc.welcomeEmail.status === "failed" ? doc.welcomeEmail.error : "",
+        }
+      : null,
     name: doc.name,
     emails: doc.emails,
     contacts: doc.contacts ?? [],

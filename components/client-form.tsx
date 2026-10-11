@@ -407,7 +407,15 @@ export function ClientForm({
         </Section>
 
         <Section title="People" description="Who gets the report, and who to call.">
-          <Field label="Report recipients" htmlFor="emails" help="Emails, separated by commas.">
+          <Field
+            label="Report recipients"
+            htmlFor="emails"
+            help={
+              client
+                ? "Emails, separated by commas."
+                : "Emails, separated by commas. Adding the client sends these people a welcome email with their report link."
+            }
+          >
             <Input
               id="emails"
               name="emails"

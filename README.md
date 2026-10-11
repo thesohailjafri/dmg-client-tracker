@@ -159,12 +159,14 @@ Set these in `.env.local` and in Vercel. Full list with comments: `.env.example`
 | `UMAMI_API_URL` | yes | e.g. `https://umami.example.com` |
 | `UMAMI_API_KEY` or `UMAMI_USERNAME` + `UMAMI_PASSWORD` | yes | Self-hosted Umami has no API keys: use a login token as the key, or give username/password |
 | `RESEND_API_KEY`, `EMAIL_FROM` | yes | `EMAIL_FROM` must be on a domain verified in Resend |
-| `EMAIL_OVERRIDE_TO` | testing | Sends every report to this address instead of the client |
+| `NEXT_PUBLIC_APP_URL` | yes | Where the app is served from. Emails link to it (the client's report link), so it must be the live address |
+| `EMAIL_OVERRIDE_TO` | testing | Sends every email to this address instead of the client. Outside the live site (`VERCEL_ENV=production`) nothing is sent at all unless it is set |
+| `EMAIL_REPLY_TO` | no | Where a client's reply lands, default `team@domoregrowth.com` |
 | `GOOGLE_PLACES_API_KEY` | no | Places API (New) key. Adds Google's own rating and review count to every snapshot (one Place Details call per report, plus one per active client a week for the review graphs; 1,000 a month free). Without it those come from the screenshot, where Google often hides the count, and there are no review graphs |
 | `AGENCY_NAME` | no | Email header + watermark text, default `DMG` |
 | `OPENAI_MODEL` | no | Default `gpt-4.1-mini` (~$0.002 per report). Must accept images. `gpt-4.1-nano` is ~3x cheaper |
 | `MONGODB_DB` | no | Default `dmg_tracker` |
-| `NEXT_PUBLIC_APP_URL`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_BROWSER_BINDING` | no | Not read by the app; kept for reference / wrangler in CI |
+| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_BROWSER_BINDING` | no | Not read by the app; kept for reference / wrangler in CI |
 
 Generate a secret:
 

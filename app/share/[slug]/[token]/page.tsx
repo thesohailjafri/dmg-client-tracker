@@ -8,6 +8,7 @@ import { Loader } from "@/components/loader";
 import { Logo } from "@/components/logo";
 import { sharedDetails, ShareOverview } from "@/components/share-overview";
 import { getSharedClient, type ClientView } from "@/lib/data";
+import { AGENCY_EMAIL } from "@/lib/env";
 import { loadGraphs } from "@/lib/graph-data";
 import { parseRange, sharePath } from "@/lib/graphs";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,6 @@ export async function generateMetadata({ params }: PageProps<"/share/[slug]/[tok
   };
 }
 const AGENCY_URL = "https://domoregrowth.com";
-const AGENCY_EMAIL = "team@domoregrowth.com";
 
 export default function SharePage({ params, searchParams }: PageProps<"/share/[slug]/[token]">) {
   return (

@@ -29,6 +29,11 @@ export function keyNumbers(current: MetricTotals, previous: MetricTotals): KeyNu
   ];
 }
 
+// The traffic figures the client email carries: the key numbers without the two rates.
+export function trafficNumbers(current: MetricTotals, previous: MetricTotals): KeyNumber[] {
+  return keyNumbers(current, previous).slice(0, 3);
+}
+
 export function periodLabel(days: number): string {
   if (days === 1) return "Daily";
   if (days === 7) return "Weekly";

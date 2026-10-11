@@ -7,3 +7,10 @@ export function env(name: string): string {
 
 export const AGENCY_NAME = process.env.AGENCY_NAME || "DMG";
 export const BRAND_BLUE = "#0066FF";
+// The team's inbox: where a client's reply to any email lands, and who a dead share link points to.
+export const AGENCY_EMAIL = process.env.EMAIL_REPLY_TO || "team@domoregrowth.com";
+
+// Where the app is served from, without a trailing slash. Emails link to it.
+export function appUrl(): string {
+  return env("NEXT_PUBLIC_APP_URL").replace(/\/+$/, "");
+}

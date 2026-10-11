@@ -1,12 +1,11 @@
 import { ObjectId } from "mongodb";
-import { renderReportEmail, sendReportEmail } from "./email";
-import { formatDay, keyNumbers, periodLabel } from "./format";
-import { leadFigures } from "./leads";
+import { sendEmail } from "./email";
 import { collections } from "./mongodb";
 import { generateInsights, OPENAI_MODEL } from "./openai";
 import { fetchPlace, findPlaceId, placesEnabled } from "./places";
 import { captureScreenshot } from "./playwright";
 import { getObject } from "./r2";
+import { reportEmail, runFigures } from "./report-email";
 import { PERIOD_DAYS, type AiLogDoc, type PlaceFacts, type Schedule } from "./schemas";
 import { fetchUmamiMetrics } from "./umami";
 
@@ -22,7 +21,7 @@ async function googleFigures(
   }
 }
 
-// One report for one client: screenshot -> Umami -> OpenAI -> log -> email.
+// One report for one client: screenshot -> Umami -> OpenAI -> log -> email (lib/report-email.ts).
 // Every run writes exactly one ai_logs doc, whether it succeeds or fails.
 export async function runReport(
   clientId: string,
@@ -74,29 +73,14 @@ export async function runReport(
       });
     }
 
-    // Only the leads ticked for this client reach the AI and the email: the raw events stay out.
-    const leads = leadFigures(client.leadTypes ?? [], umami?.events);
-    const traffic = umami && {
-      current: umami.current,
-      previous: umami.previous,
-      topPages: umami.topPages,
-      topReferrers: umami.topReferrers,
-    };
+    // The AI is told the same figures the email will show, worked out from what was just saved.
+    // Only the leads ticked for this client are among them: the raw events stay out.
+    const { figures } = await runFigures(client, log);
 
     const image = await getObject(capture.key);
-    const base64 = image.body.toString("base64");
-
     const ai = await generateInsights({
-      clientName: client.name,
-      url: client.url,
-      periodDays,
-      metrics: traffic,
-      leads: leads.map(({ label, current, previous }) => ({ label, current, previous })),
-      google:
-        known && "place" in known
-          ? { rating: known.place.rating, reviewCount: known.place.reviewCount }
-          : null,
-      image: { base64, contentType: image.contentType },
+      facts: figures.facts,
+      image: { base64: image.body.toString("base64"), contentType: image.contentType },
     });
     log.model = OPENAI_MODEL;
     log.output = ai.output;
@@ -116,23 +100,15 @@ export async function runReport(
     await screenshots.updateOne({ _id: log.screenshotId }, { $set: { note: ai.note, ...found } });
 
     if (options.sendEmail) {
-      const end = new Date();
-      const start = new Date(end.getTime() - periodDays * 86_400_000);
-      const period = periodLabel(periodDays);
-      log.email = await sendReportEmail({
+      log.email = await sendEmail({
         to: client.emails,
-        subject: `${client.name}: ${period.toLowerCase()} report`,
-        html: renderReportEmail({
-          clientName: client.name,
-          period,
-          dateRange: `${formatDay(start)} – ${formatDay(end)}`,
-          numbers: umami ? keyNumbers(umami.current, umami.previous) : [],
-          leads,
-          topPages: umami?.topPages ?? [],
-          topReferrers: umami?.topReferrers ?? [],
-          ai: ai.output,
-        }),
-        screenshot: { base64, filename: "google-listing.jpg" },
+        email: await reportEmail(client, log),
+        // A scheduled report goes out once a day at most, however often its cron tick is retried.
+        // A manual "Run & send" is someone asking for it again, so it is never held back.
+        idempotencyKey:
+          options.trigger === "cron"
+            ? `report-${clientId}-${options.period}-${log.createdAt.toISOString().slice(0, 10)}`
+            : undefined,
       });
       if (log.email.status === "failed") {
         log.status = "failed";
