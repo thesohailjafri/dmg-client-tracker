@@ -1,0 +1,18 @@
+{
+  "name": "dmg-client-tracker-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --remote --test-scheduled",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/playwright": "^1.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261008.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.149.0"
+  }
+}

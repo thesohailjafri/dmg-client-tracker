@@ -1,0 +1,38 @@
+name = "dmg-client-tracker-worker"
+main = "src/index.ts"
+compatibility_date = "2025-09-17"
+compatibility_flags = ["nodejs_compat"]
+
+# Custom domain (also reachable at dmg-client-tracker-worker.thesohailjafri.workers.dev).
+# Declared here so a deploy keeps it. This is the value of WORKER_URL in the Next.js app.
+routes = [{ pattern = "client-tracker-worker.dmgapps.com", custom_domain = true }]
+
+# Browser Run. The binding name matches CLOUDFLARE_BROWSER_BINDING in .env.example.
+[browser]
+binding = "BROWSER"
+
+# Shared bucket; this app only writes under R2_PREFIX (see [vars]).
+# Must match R2_BUCKET_NAME in the Next.js app.
+[[r2_buckets]]
+binding = "SCREENSHOTS"
+bucket_name = "dmg-common-bucket"
+
+# All times UTC. The Worker reads the expression to decide which clients to run:
+#   day-of-month set -> "monthly" clients, day-of-week set -> "weekly", neither -> "daily".
+# Staggered so the three batches never start in the same minute.
+[triggers]
+crons = [
+  "0 6 * * *",    # daily   06:00
+  "10 6 * * MON", # weekly  Monday 06:10
+  "20 6 1 * *",   # monthly 1st 06:20
+]
+
+[vars]
+APP_URL = "https://your-domain-here"
+# Folder inside the bucket. Objects land at <R2_PREFIX>/clients/<clientId>/<timestamp>.jpg
+R2_PREFIX = "dmg-client-reports"
+
+# Secret (not stored here):  npx wrangler secret put WORKER_SECRET
+
+[observability]
+enabled = true
