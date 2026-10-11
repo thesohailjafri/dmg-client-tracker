@@ -7,12 +7,13 @@ import { shareUrl } from "./share";
 // The welcome email for a client as it stands now. Throws when the client's link is turned off:
 // the link is what the email is for.
 export async function welcomeEmail(
-  client: Pick<ClientDoc, "name" | "shareToken" | "schedules" | "active">,
+  client: Pick<ClientDoc, "name" | "shareToken" | "schedules" | "active" | "umamiWebsiteId">,
 ): Promise<RenderedEmail> {
   if (!client.shareToken) throw new Error("This client's link is turned off. Make one on the Report tab first.");
   return renderWelcomeEmail({
     clientName: client.name,
     shareUrl: shareUrl(client.name, client.shareToken),
+    website: Boolean(client.umamiWebsiteId),
     founderPhoto: await hasFounderPhoto(),
     // a paused client is promised no reports; "daily" from older clients is not a schedule any more
     schedules: client.active ? SCHEDULES.filter((schedule) => client.schedules?.includes(schedule)) : [],
