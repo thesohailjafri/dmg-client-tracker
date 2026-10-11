@@ -1,6 +1,14 @@
 "use client";
 
-import { ChartColumnIcon, CheckIcon, CopyIcon, MapPinIcon, MegaphoneIcon, QrCodeIcon } from "lucide-react";
+import {
+  ChartColumnIcon,
+  CheckIcon,
+  CopyIcon,
+  GlobeIcon,
+  MapPinIcon,
+  MegaphoneIcon,
+  QrCodeIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ReviewBannerDialog } from "@/components/review/review-banner-dialog";
@@ -26,7 +34,7 @@ function LinkButton({ href, children }: { href: string; children: React.ReactNod
   );
 }
 
-// The shortcuts on a client's Overview tab: review kit, Google profile and Umami.
+// The shortcuts on a client's Overview tab: review kit, Google profile, website and Umami.
 export function ClientActions({
   client,
   umamiUrl,
@@ -61,6 +69,17 @@ export function ClientActions({
           <MapPinIcon />
           Open Google profile
         </LinkButton>
+        {client.websiteUrl ? (
+          <LinkButton href={client.websiteUrl}>
+            <GlobeIcon />
+            Open website
+          </LinkButton>
+        ) : (
+          <Button variant="outline" size="sm" disabled title="No website is saved for this client.">
+            <GlobeIcon />
+            Open website
+          </Button>
+        )}
         {umamiUrl ? (
           <LinkButton href={umamiUrl}>
             <ChartColumnIcon />

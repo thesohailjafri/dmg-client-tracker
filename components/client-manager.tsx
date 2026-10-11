@@ -4,6 +4,7 @@ import {
   CheckIcon,
   ChevronDownIcon,
   CopyIcon,
+  GlobeIcon,
   MapPinIcon,
   MegaphoneIcon,
   PauseIcon,
@@ -87,6 +88,7 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
         [
           client.name,
           client.url,
+          client.websiteUrl,
           ...client.emails,
           ...client.contacts.flatMap((contact) => [contact.name, contact.phone]),
         ].some((value) => value.toLowerCase().includes(needle)),
@@ -172,7 +174,7 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
                 <Input
                   type="search"
                   aria-label="Search clients"
-                  placeholder="Search name, email or phone"
+                  placeholder="Search name, website, email or phone"
                   className="pl-8"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
@@ -215,16 +217,28 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
                             {client.name}
                           </Link>
                           <div className="max-w-64 truncate text-xs text-muted-foreground">{client.url}</div>
-                          {client.googleReviewUrl && (
-                            <a
-                              href={client.googleReviewUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs text-primary hover:underline"
-                            >
-                              Review link
-                            </a>
-                          )}
+                          <div className="flex gap-3 text-xs">
+                            {client.websiteUrl && (
+                              <a
+                                href={client.websiteUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                Website
+                              </a>
+                            )}
+                            {client.googleReviewUrl && (
+                              <a
+                                href={client.googleReviewUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary hover:underline"
+                              >
+                                Review link
+                              </a>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-xs">
                           {client.emails.join(", ")}
@@ -292,6 +306,14 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
                                     <MapPinIcon />
                                     Open Google Maps profile
                                   </DropdownMenuItem>
+                                  {client.websiteUrl && (
+                                    <DropdownMenuItem
+                                      render={<a href={client.websiteUrl} target="_blank" rel="noreferrer" />}
+                                    >
+                                      <GlobeIcon />
+                                      Open website
+                                    </DropdownMenuItem>
+                                  )}
                                   {/* stays open so the "copied" state is seen */}
                                   <DropdownMenuItem
                                     closeOnClick={false}

@@ -101,6 +101,8 @@ async function Overview({ id }: { id: string }) {
       </Card>
 
       <Details client={client} />
+
+      <Directories client={client} />
     </>
   );
 }
@@ -171,6 +173,44 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
 
 const NONE = <span className="text-muted-foreground">Not set</span>;
 
+// Everywhere the business is listed besides its Google Maps profile, as saved on the Edit tab.
+function Directories({ client }: { client: ClientView }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Public directories</CardTitle>
+        <CardDescription>Where this business is listed, besides Google Maps.</CardDescription>
+        <CardAction>
+          <Link href={`/clients/${client.id}/edit`} className="text-sm text-primary hover:underline">
+            Edit
+          </Link>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        {client.directories.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No directory listings saved yet.</p>
+        ) : (
+          <ul className="divide-y">
+            {client.directories.map((directory, index) => (
+              <li key={index} className="flex items-baseline gap-4 py-2 text-sm first:pt-0 last:pb-0">
+                <span className="w-40 shrink-0 truncate font-medium">{directory.name}</span>
+                <a
+                  href={directory.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="min-w-0 truncate text-primary hover:underline"
+                >
+                  {directory.url}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function Details({ client }: { client: ClientView }) {
   return (
     <Card>
@@ -184,6 +224,20 @@ function Details({ client }: { client: ClientView }) {
       </CardHeader>
       <CardContent>
         <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
+          <Detail label="Website">
+            {client.websiteUrl ? (
+              <a
+                href={client.websiteUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="block truncate text-primary hover:underline"
+              >
+                {client.websiteUrl}
+              </a>
+            ) : (
+              NONE
+            )}
+          </Detail>
           <Detail label="Google Maps profile">
             <a
               href={client.url}

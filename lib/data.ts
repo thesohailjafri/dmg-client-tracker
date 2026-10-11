@@ -101,6 +101,8 @@ function clientView(doc: ClientDoc): ClientView {
     emails: doc.emails,
     contacts: doc.contacts ?? [],
     url: doc.url,
+    websiteUrl: doc.websiteUrl ?? "",
+    directories: doc.directories ?? [],
     googleReviewUrl: doc.googleReviewUrl ?? "",
     googlePlaceId: doc.googlePlaceId ?? "",
     umamiWebsiteId: doc.umamiWebsiteId,

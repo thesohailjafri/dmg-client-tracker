@@ -7,6 +7,8 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (pathname === "/login" || pathname === "/api/auth/login") return NextResponse.next();
   if (pathname.startsWith("/share/")) return NextResponse.next();
+  // the app's link preview image: whatever fetches it is never signed in, and it shows no data
+  if (pathname === "/opengraph-image") return NextResponse.next();
   if (isAuthorized(request)) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {

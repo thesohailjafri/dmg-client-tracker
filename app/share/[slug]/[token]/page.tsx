@@ -15,10 +15,26 @@ import { parseRange, sharePath } from "@/lib/graphs";
 // one is redirected to the current name. Only graphs are rendered here, so nothing else about the
 // client (emails, contacts, notes) can reach the page.
 
-// Nothing about the client goes in the tab title: it shows before the token has been checked.
-export const metadata: Metadata = { title: "Growth graphs", referrer: "no-referrer" };
-
 const AGENCY = process.env.AGENCY_NAME || "DMG";
+
+// The tab title and the link preview. The business name only goes in once the token has found a
+// client: a link that is not active says nothing about anyone. The preview image beside this file
+// (opengraph-image.tsx) follows the same rule.
+export async function generateMetadata({ params }: PageProps<"/share/[slug]/[token]">): Promise<Metadata> {
+  const { token } = await params;
+  const client = await getSharedClient(token);
+  const title = client ? `${client.name}: Growth Report by ${AGENCY}` : `Growth Report by ${AGENCY}`;
+  const description = client
+    ? `How ${client.name}'s website and Google profile are growing. ${AGENCY} Client Tracker.`
+    : `${AGENCY} Client Tracker.`;
+  return {
+    title,
+    description,
+    referrer: "no-referrer",
+    openGraph: { title, description, siteName: `${AGENCY} Client Tracker`, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 const AGENCY_URL = "https://domoregrowth.com";
 const AGENCY_EMAIL = "team@domoregrowth.com";
 

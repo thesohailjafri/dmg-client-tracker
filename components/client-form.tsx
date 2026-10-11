@@ -17,17 +17,48 @@ import {
   LEAD_TYPES,
   SCHEDULES,
   type Contact,
+  type Directory,
   type GraphSectionKey,
   type LeadType,
 } from "@/lib/schemas";
 import { SITE_EVENTS, trackingPrompt } from "@/lib/tracking-prompt";
 
 const BLANK_CONTACT: Contact = { name: "", phone: "" };
+const BLANK_DIRECTORY: Directory = { name: "", url: "" };
+
+// Offered while typing a directory's name. Any other name can be typed too.
+const DIRECTORY_NAMES = [
+  "Yelp",
+  "Bing Places",
+  "Apple Maps",
+  "Facebook",
+  "Instagram",
+  "Justdial",
+  "Sulekha",
+  "IndiaMART",
+  "Tripadvisor",
+  "Yellow Pages",
+  "Foursquare",
+  "Trustpilot",
+  "Better Business Bureau",
+  "Chamber of Commerce",
+];
 
 // Maps search for the business, e.g. "OK Auto" -> https://www.google.com/maps/search/ok+auto
 function mapsSearchUrl(name: string) {
   return `https://www.google.com/maps/search/${encodeURIComponent(name.trim().toLowerCase()).replace(/%20/g, "+")}`;
 }
+
+// A website typed the short way, e.g. "okauto.in" -> https://okauto.in
+function withScheme(address: string) {
+  const trimmed = address.trim();
+  return !trimmed || /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+// What the browser accepts in a web address field typed as plain text: a domain with a dot in it,
+// with or without http(s):// in front. The server checks the address properly on save.
+// (browsers compile `pattern` with the "v" flag, where a "/" inside [] has to be escaped)
+const WEB_ADDRESS_PATTERN = "\\s*(https?://)?[^\\s\\/.]+(\\.[^\\s\\/.]+)+(/\\S*)?\\s*";
 
 // Google's own map for looking up a business's Place ID by name.
 const PLACE_ID_FINDER_URL =
@@ -109,6 +140,9 @@ export function ClientForm({
   const [contacts, setContacts] = useState<Contact[]>(
     client && client.contacts.length > 0 ? client.contacts : [BLANK_CONTACT],
   );
+  const [directories, setDirectories] = useState<Directory[]>(
+    client && client.directories.length > 0 ? client.directories : [BLANK_DIRECTORY],
+  );
 
   // controlled so the events and the prompt below the boxes follow what is ticked
   const [leadTypes, setLeadTypes] = useState<LeadType[]>(client?.leadTypes ?? []);
@@ -129,6 +163,10 @@ export function ClientForm({
 
   function setContact(index: number, patch: Partial<Contact>) {
     setContacts((list) => list.map((contact, i) => (i === index ? { ...contact, ...patch } : contact)));
+  }
+
+  function setDirectory(index: number, patch: Partial<Directory>) {
+    setDirectories((list) => list.map((directory, i) => (i === index ? { ...directory, ...patch } : directory)));
   }
 
   async function copyPrompt() {
@@ -156,6 +194,10 @@ export function ClientForm({
         .map((contact) => ({ name: contact.name.trim(), phone: contact.phone.trim() }))
         .filter((contact) => contact.name || contact.phone),
       url: form.get("url"),
+      websiteUrl: withScheme(String(form.get("websiteUrl"))),
+      directories: directories
+        .map((directory) => ({ name: directory.name.trim(), url: withScheme(directory.url) }))
+        .filter((directory) => directory.name || directory.url),
       googleReviewUrl: String(form.get("googleReviewUrl")).trim(),
       googlePlaceId: form.get("googlePlaceId"),
       umamiWebsiteId: form.get("umamiWebsiteId"),
@@ -188,9 +230,30 @@ export function ClientForm({
               id="name"
               name="name"
               required
-              placeholder="OK Auto"
+              placeholder="e.g. OK Auto Service Centre"
               value={name}
               onChange={(event) => setName(event.target.value)}
+            />
+          </Field>
+          <Field
+            label="Website"
+            htmlFor="websiteUrl"
+            optional
+            help="The client's own site. Leave it empty if they do not have one."
+          >
+            {/* plain text, not type="url": the address can be typed without https:// */}
+            <Input
+              id="websiteUrl"
+              name="websiteUrl"
+              inputMode="url"
+              autoCapitalize="off"
+              spellCheck={false}
+              placeholder="e.g. www.okauto.in"
+              maxLength={2000}
+              pattern={WEB_ADDRESS_PATTERN}
+              title="A website address, like www.okauto.in"
+              aria-describedby="websiteUrl-help"
+              defaultValue={client?.websiteUrl}
             />
           </Field>
           <Field
@@ -216,7 +279,7 @@ export function ClientForm({
               name="url"
               type="url"
               required
-              placeholder="https://maps.app.goo.gl/xxxxxxxxxxxxxxxxx"
+              placeholder="e.g. https://maps.app.goo.gl/Qy7kL2mNp4RsT8vW9"
               aria-describedby="url-help"
               defaultValue={client?.url}
             />
@@ -226,7 +289,7 @@ export function ClientForm({
               id="googleReviewUrl"
               name="googleReviewUrl"
               type="url"
-              placeholder="https://g.page/r/xxxxxxxxxxxx/review"
+              placeholder="e.g. https://g.page/r/CQx1aBcDeFgHiEBM/review"
               defaultValue={client?.googleReviewUrl}
             />
           </Field>
@@ -250,11 +313,83 @@ export function ClientForm({
             <Input
               id="googlePlaceId"
               name="googlePlaceId"
-              placeholder="ChIJxxxxxxxxxxxxxxxxxxxxxxx"
+              placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
               aria-describedby="googlePlaceId-help"
               defaultValue={client?.googlePlaceId}
             />
           </Field>
+        </Section>
+
+        <Section title="Public directories" description="Everywhere else the business is listed.">
+          <div role="group" aria-labelledby="directories-label" className="flex flex-col gap-2">
+            <div id="directories-label" className="flex items-center gap-2 text-sm leading-none font-medium">
+              Listings
+              {OPTIONAL}
+            </div>
+            <datalist id="directory-names">
+              {DIRECTORY_NAMES.map((directory) => (
+                <option key={directory} value={directory} />
+              ))}
+            </datalist>
+            {directories.map((directory, index) => {
+              // a half-filled row must be completed; a blank one is dropped on save
+              const started = Boolean(directory.name.trim() || directory.url.trim());
+              return (
+                // on a phone the link drops to its own line, under the name
+                <div key={index} className="flex flex-wrap gap-2 sm:flex-nowrap">
+                  <Input
+                    aria-label={`Directory ${index + 1} name`}
+                    placeholder="e.g. Yelp"
+                    list="directory-names"
+                    maxLength={80}
+                    className="w-auto flex-1 basis-32"
+                    required={started}
+                    value={directory.name}
+                    onChange={(event) => setDirectory(index, { name: event.target.value })}
+                  />
+                  <Input
+                    aria-label={`Directory ${index + 1} link`}
+                    placeholder="e.g. yelp.com/biz/ok-auto-service-centre"
+                    maxLength={2000}
+                    pattern={WEB_ADDRESS_PATTERN}
+                    title="The link to the listing, like yelp.com/biz/ok-auto-service-centre"
+                    inputMode="url"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    className="order-last w-full sm:order-none sm:w-auto sm:flex-2 sm:basis-52"
+                    required={started}
+                    value={directory.url}
+                    onChange={(event) => setDirectory(index, { url: event.target.value })}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground"
+                    aria-label={`Remove directory ${index + 1}`}
+                    onClick={() => setDirectories((list) => list.filter((_, i) => i !== index))}
+                  >
+                    <XIcon />
+                  </Button>
+                </div>
+              );
+            })}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="-ml-2.5 w-fit text-primary hover:text-primary"
+              disabled={directories.length >= 50}
+              onClick={() => setDirectories((list) => [...list, BLANK_DIRECTORY])}
+            >
+              <PlusIcon />
+              Add directory
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Paste the link to the business&apos;s own page on each directory. The Google Maps profile is
+              already saved above.
+            </p>
+          </div>
         </Section>
 
         <Section title="People" description="Who gets the report, and who to call.">
@@ -263,7 +398,7 @@ export function ClientForm({
               id="emails"
               name="emails"
               required
-              placeholder="owner@example.com, manager@example.com"
+              placeholder="e.g. owner@okauto.in, manager@okauto.in"
               aria-describedby="emails-help"
               defaultValue={client?.emails.join(", ")}
             />
@@ -281,7 +416,7 @@ export function ClientForm({
                 <div key={index} className="flex flex-wrap gap-2 sm:flex-nowrap">
                   <Input
                     aria-label={`Contact ${index + 1} name`}
-                    placeholder="Name"
+                    placeholder="e.g. Rahul Sharma"
                     className="w-auto flex-1 basis-32"
                     required={started}
                     value={contact.name}
@@ -291,7 +426,7 @@ export function ClientForm({
                       its format for display; the stored text only changes once it is edited */}
                   <PhoneInput
                     aria-label={`Contact ${index + 1} phone number`}
-                    placeholder="Phone number"
+                    placeholder="e.g. 98765 43210"
                     className="order-last w-full sm:order-none sm:w-auto sm:flex-1 sm:basis-52"
                     defaultCountry={DEFAULT_PHONE_COUNTRY}
                     required={started}
@@ -374,7 +509,7 @@ export function ClientForm({
             <Input
               id="umamiWebsiteId"
               name="umamiWebsiteId"
-              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              placeholder="e.g. 3f2a9c1e-7b4d-4e6a-9f10-2c8d5b7a1e34"
               aria-describedby="umamiWebsiteId-help"
               defaultValue={client?.umamiWebsiteId}
             />

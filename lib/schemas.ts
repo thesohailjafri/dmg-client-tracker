@@ -35,6 +35,17 @@ export const contactInput = z.object({
 });
 export type Contact = z.infer<typeof contactInput>;
 
+// A public web address: http(s) on a real domain name, so "https://okauto" and "https://localhost" fail.
+const webUrl = (error: string) =>
+  z.url({ protocol: /^https?$/, hostname: z.regexes.domain, error }).max(2000, error);
+
+// One place the business is listed: Yelp, Bing Places, a Chamber of Commerce page and so on.
+export const directoryInput = z.object({
+  name: z.string().trim().min(1, "Each directory needs a name").max(80, "Keep each directory name under 80 characters"),
+  url: webUrl("Each directory needs a valid link, like https://www.yelp.com/biz/ok-auto"),
+});
+export type Directory = z.infer<typeof directoryInput>;
+
 export const clientInput = z.object({
   // The business name, as it appears on Google Maps.
   name: z.string().trim().min(1).max(120),
@@ -44,6 +55,18 @@ export const clientInput = z.object({
   // The page the report screenshots: the business's own Maps share link (maps.app.goo.gl/...),
   // which opens the same profile every time. A search URL works too but its results can shift.
   url: z.url({ protocol: /^https?$/ }),
+  // The client's own website. Stored and linked to only; the report does not read it.
+  websiteUrl: z
+    .union([z.literal(""), webUrl("Enter a valid website address, like https://www.okauto.in")])
+    .default(""),
+  // Where else the business is listed, kept in one place to look up. Stored only.
+  directories: z
+    .array(directoryInput)
+    .max(50, "A client can have 50 directories at most")
+    .default([])
+    .refine((list) => new Set(list.map((directory) => directory.url)).size === list.length, {
+      error: "The same directory link is listed twice",
+    }),
   // The client's "leave us a Google review" link. Stored only; not used by the report yet.
   googleReviewUrl: z.union([z.literal(""), z.url({ protocol: /^https?$/ })]).default(""),
   // The business in Google's Places API. Found by the first report run and saved here; editable in
