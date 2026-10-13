@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import { ClientActions } from "@/components/client-actions";
@@ -22,6 +23,7 @@ import { LEAD_LABELS } from "@/lib/leads";
 import { formatPhone } from "@/lib/phone";
 import { RECENT_DAYS, reviewClickTotals, type ReviewClickTotals } from "@/lib/review-clicks";
 import { reviewUrl } from "@/lib/review-link";
+import { NOTHING_TO_REPORT, reportable } from "@/lib/schemas";
 import { umamiWebsiteUrl } from "@/lib/umami";
 
 export default function ClientOverviewPage({ params }: PageProps<"/clients/[id]">) {
@@ -42,7 +44,8 @@ async function Overview({ id }: { id: string }) {
 
   const [analytics, gbp, clicks] = await Promise.all([
     listAnalyticsSnapshots(id),
-    listGbpSnapshots(id),
+    // with the Google profile switched off, past snapshots are on their own tab and not counted here
+    client.hasGoogleProfile ? listGbpSnapshots(id) : [],
     reviewClickTotals(id),
   ]);
   const traffic = analytics.snapshots[0];
@@ -60,7 +63,12 @@ async function Overview({ id }: { id: string }) {
             client={client}
             umamiUrl={client.umamiWebsiteId ? umamiWebsiteUrl(client.umamiWebsiteId) : null}
           />
-          <RunButtons clientId={client.id} clientName={client.name} schedules={client.schedules} />
+          <RunButtons
+            clientId={client.id}
+            clientName={client.name}
+            schedules={client.schedules}
+            blocked={reportable(client) ? "" : NOTHING_TO_REPORT}
+          />
         </CardContent>
       </Card>
 
@@ -70,13 +78,15 @@ async function Overview({ id }: { id: string }) {
           <CardDescription>The latest figures from this client&apos;s snapshots.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
-          <Figures
-            title="Google profile"
-            href={`/clients/${client.id}/google-profile`}
-            caption={profile.caption}
-            numbers={profile.numbers}
-            empty="No Google profile snapshots yet. Run a report to take the first one."
-          />
+          {client.hasGoogleProfile && (
+            <Figures
+              title="Google profile"
+              href={`/clients/${client.id}/google-profile`}
+              caption={profile.caption}
+              numbers={profile.numbers}
+              empty="No Google profile snapshots yet. Run a report to take the first one."
+            />
+          )}
           <Figures
             title="Website traffic"
             href={`/clients/${client.id}/analytics`}
@@ -107,7 +117,7 @@ async function Overview({ id }: { id: string }) {
         </CardContent>
       </Card>
 
-      <ReviewLink client={client} clicks={clicks} />
+      {client.hasGoogleProfile && <ReviewLink client={client} clicks={clicks} />}
 
       <Details client={client} />
 
@@ -188,6 +198,8 @@ const NONE = <span className="text-muted-foreground">Not set</span>;
 function Emails({ client }: { client: ClientView }) {
   const preview = (kind: "welcome" | "report") => `/api/emails/preview?clientId=${client.id}&kind=${kind}`;
   const welcome = client.welcomeEmail;
+  // no Google profile and no Umami website: no reports are run, and no welcome email promises one
+  const nothingToReport = !reportable(client);
   return (
     <Card>
       <CardHeader>
@@ -200,7 +212,9 @@ function Emails({ client }: { client: ClientView }) {
         <dl className="grid gap-x-8 gap-y-5 sm:grid-cols-2">
           <Detail label="Welcome email">
             {welcome === null ? (
-              <span className="text-muted-foreground">Not sent: added before there was one</span>
+              <span className="text-muted-foreground">
+                {nothingToReport ? "Not sent: nothing to report on yet" : "Not sent: added before there was one"}
+              </span>
             ) : welcome.status === "sent" ? (
               // the addresses say whether it reached the client or the test inbox
               <>
@@ -215,19 +229,29 @@ function Emails({ client }: { client: ClientView }) {
               </span>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <SendWelcome clientId={client.id} clientName={client.name} again={welcome?.status === "sent"} />
-              <a
-                href={preview("welcome")}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-primary hover:underline"
-              >
-                Preview welcome email
-              </a>
+              <SendWelcome
+                clientId={client.id}
+                clientName={client.name}
+                again={welcome?.status === "sent"}
+                blocked={nothingToReport ? NOTHING_TO_REPORT : ""}
+              />
+              {/* there is no welcome email to preview until there is something to report on */}
+              {!nothingToReport && (
+                <a
+                  href={preview("welcome")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-primary hover:underline"
+                >
+                  Preview welcome email
+                </a>
+              )}
             </div>
           </Detail>
           <Detail label="Report email">
-            {client.schedules.length > 0 && client.active ? (
+            {nothingToReport ? (
+              <span className="text-muted-foreground">No reports: nothing to report on yet</span>
+            ) : client.schedules.length > 0 && client.active ? (
               <>Sent with every {client.schedules.join(" and ")} report</>
             ) : (
               <span className="text-muted-foreground">Only when a report is run and sent by hand</span>
@@ -304,7 +328,11 @@ function Directories({ client }: { client: ClientView }) {
     <Card>
       <CardHeader>
         <CardTitle>Public directories</CardTitle>
-        <CardDescription>Where this business is listed, besides Google Maps.</CardDescription>
+        <CardDescription>
+          {client.hasGoogleProfile
+            ? "Where this business is listed, besides Google Maps."
+            : "Where this business is listed."}
+        </CardDescription>
         <CardAction>
           <Link href={`/clients/${client.id}/edit`} className="text-sm text-primary hover:underline">
             Edit
@@ -363,35 +391,78 @@ function Details({ client }: { client: ClientView }) {
               NONE
             )}
           </Detail>
-          <Detail label="Google Maps profile">
-            <a
-              href={client.url}
-              target="_blank"
-              rel="noreferrer"
-              className="block truncate text-primary hover:underline"
-            >
-              {client.url}
-            </a>
-          </Detail>
-          <Detail label="Google review link">
-            {client.googleReviewUrl ? (
-              <a
-                href={client.googleReviewUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="block truncate text-primary hover:underline"
-              >
-                {client.googleReviewUrl}
+          {client.hasGoogleProfile ? (
+            <>
+              <Detail label="Google Maps profile">
+                <a
+                  href={client.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate text-primary hover:underline"
+                >
+                  {client.url}
+                </a>
+              </Detail>
+              <Detail label="Google review link">
+                {client.googleReviewUrl ? (
+                  <a
+                    href={client.googleReviewUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block truncate text-primary hover:underline"
+                  >
+                    {client.googleReviewUrl}
+                  </a>
+                ) : (
+                  NONE
+                )}
+              </Detail>
+              <Detail label="Google Place ID">
+                {client.googlePlaceId ? (
+                  <span className="block truncate font-mono text-xs">{client.googlePlaceId}</span>
+                ) : (
+                  <span className="text-muted-foreground">Found on the first run with the Places API</span>
+                )}
+              </Detail>
+            </>
+          ) : (
+            // one row, so a deliberate "none" is told apart from something left empty
+            <Detail label="Google Business Profile">
+              <span className="text-muted-foreground">Switched off</span>
+            </Detail>
+          )}
+          <Detail label="Address">{client.address || NONE}</Detail>
+          <Detail label="Business phone">
+            {client.businessPhone ? (
+              <a href={`tel:${client.businessPhone.replace(/[^\d+]/g, "")}`} className="hover:underline">
+                {formatPhone(client.businessPhone)}
               </a>
             ) : (
               NONE
             )}
           </Detail>
-          <Detail label="Google Place ID">
-            {client.googlePlaceId ? (
-              <span className="block truncate font-mono text-xs">{client.googlePlaceId}</span>
+          <Detail label="Business email">
+            {client.businessEmail ? (
+              <a href={`mailto:${client.businessEmail}`} className="block truncate hover:underline">
+                {client.businessEmail}
+              </a>
             ) : (
-              <span className="text-muted-foreground">Found on the first run with the Places API</span>
+              NONE
+            )}
+          </Detail>
+          <Detail label="Logo">
+            {client.logoUrl ? (
+              // the bucket is private, so the image comes through our own route and skips the optimizer
+              <Image
+                src={client.logoUrl}
+                alt={`Logo of ${client.name}`}
+                width={56}
+                height={56}
+                unoptimized
+                className="size-14 rounded-lg bg-white object-contain p-1 ring-1 ring-foreground/10"
+              />
+            ) : (
+              NONE
             )}
           </Detail>
           <Detail label="Report recipients">{client.emails.join(", ")}</Detail>

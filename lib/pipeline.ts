@@ -6,8 +6,20 @@ import { fetchPlace, findPlaceId, placesEnabled } from "./places";
 import { captureScreenshot } from "./playwright";
 import { getObject } from "./r2";
 import { reportEmail, runFigures } from "./report-email";
-import { PERIOD_DAYS, type AiLogDoc, type PlaceFacts, type Schedule } from "./schemas";
+import {
+  googleOn,
+  NOTHING_TO_REPORT,
+  PERIOD_DAYS,
+  reportable,
+  type AiLogDoc,
+  type PlaceFacts,
+  type Schedule,
+} from "./schemas";
 import { fetchUmamiMetrics } from "./umami";
+
+// A run that was turned away before it started, so nothing was logged: the client has neither a
+// Google profile nor a website to report on.
+export class ReportRefused extends Error {}
 
 // The Places API is an extra: when it fails the report still goes out, and the snapshot records why.
 async function googleFigures(
@@ -23,6 +35,8 @@ async function googleFigures(
 
 // One report for one client: screenshot -> Umami -> OpenAI -> log -> email (lib/report-email.ts).
 // Every run writes exactly one ai_logs doc, whether it succeeds or fails.
+// A client with no Google profile skips everything about Google: no screenshot, no Places API, and
+// the AI is given the figures alone.
 export async function runReport(
   clientId: string,
   options: { trigger: "manual" | "cron"; period: Schedule; sendEmail: boolean },
@@ -30,6 +44,8 @@ export async function runReport(
   const { clients, screenshots, metrics, aiLogs } = await collections();
   const client = await clients.findOne({ _id: new ObjectId(clientId) });
   if (!client) throw new Error("Client not found");
+  if (!reportable(client)) throw new ReportRefused(NOTHING_TO_REPORT);
+  const google = googleOn(client);
 
   const log: AiLogDoc = {
     _id: new ObjectId(),
@@ -45,23 +61,25 @@ export async function runReport(
   try {
     const periodDays = PERIOD_DAYS[options.period];
 
-    const placeId = placesEnabled() ? client.googlePlaceId : "";
+    const placeId = google && placesEnabled() ? client.googlePlaceId : "";
     const [capture, umami, known] = await Promise.all([
-      captureScreenshot({ url: client.url, clientId, clientName: client.name }),
+      google ? captureScreenshot({ url: client.url, clientId, clientName: client.name }) : null,
       client.umamiWebsiteId ? fetchUmamiMetrics(client.umamiWebsiteId, periodDays) : null,
       placeId ? googleFigures(() => fetchPlace(placeId)) : null,
     ]);
 
-    log.screenshotId = new ObjectId();
-    await screenshots.insertOne({
-      _id: log.screenshotId,
-      clientId: client._id,
-      url: client.url,
-      r2Key: capture.key,
-      bytes: capture.bytes,
-      capturedAt: new Date(capture.capturedAt),
-      ...known,
-    });
+    if (capture) {
+      log.screenshotId = new ObjectId();
+      await screenshots.insertOne({
+        _id: log.screenshotId,
+        clientId: client._id,
+        url: client.url,
+        r2Key: capture.key,
+        bytes: capture.bytes,
+        capturedAt: new Date(capture.capturedAt),
+        ...known,
+      });
+    }
 
     if (umami) {
       log.metricsId = new ObjectId();
@@ -77,27 +95,31 @@ export async function runReport(
     // Only the leads ticked for this client are among them: the raw events stay out.
     const { figures } = await runFigures(client, log);
 
-    const image = await getObject(capture.key);
+    const image = capture && (await getObject(capture.key));
     const ai = await generateInsights({
       facts: figures.facts,
-      image: { base64: image.body.toString("base64"), contentType: image.contentType },
+      image: image ? { base64: image.body.toString("base64"), contentType: image.contentType } : undefined,
     });
     log.model = OPENAI_MODEL;
     log.output = ai.output;
     log.usage = ai.usage;
 
-    // First run with the Places API: find the business by its name plus the address the AI just read
-    // off the screenshot, and remember it on the client. Later runs skip the search.
-    const found =
-      placesEnabled() && !client.googlePlaceId
-        ? await googleFigures(async () => {
-            const id = await findPlaceId([client.name, ai.note.address].filter(Boolean).join(", "));
-            if (!id) return null;
-            await clients.updateOne({ _id: client._id }, { $set: { googlePlaceId: id } });
-            return fetchPlace(id);
-          })
-        : null;
-    await screenshots.updateOne({ _id: log.screenshotId }, { $set: { note: ai.note, ...found } });
+    // `note` is the AI's reading of the screenshot, so there is one exactly when one was taken.
+    const { note } = ai;
+    if (note) {
+      // First run with the Places API: find the business by its name plus the address the AI just
+      // read off the screenshot, and remember it on the client. Later runs skip the search.
+      const found =
+        placesEnabled() && !client.googlePlaceId
+          ? await googleFigures(async () => {
+              const id = await findPlaceId([client.name, note.address].filter(Boolean).join(", "));
+              if (!id) return null;
+              await clients.updateOne({ _id: client._id }, { $set: { googlePlaceId: id } });
+              return fetchPlace(id);
+            })
+          : null;
+      await screenshots.updateOne({ _id: log.screenshotId }, { $set: { note, ...found } });
+    }
 
     if (options.sendEmail) {
       log.email = await sendEmail({

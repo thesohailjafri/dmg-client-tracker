@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Suspense } from "react";
 import { Loader } from "@/components/loader";
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +138,23 @@ async function GoogleProfile({ id }: { id: string }) {
   if (!client) return null;
   const snapshots = await listGbpSnapshots(id);
 
+  // No Google profile and never had one: the tab is not offered, but its address still opens.
+  if (!client.hasGoogleProfile && snapshots.length === 0) {
+    return (
+      <Card>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            This client has no Google Business Profile.{" "}
+            <Link href={`/clients/${client.id}/edit`} className="text-primary hover:underline">
+              Change it on the Edit tab
+            </Link>
+            .
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -148,6 +166,12 @@ async function GoogleProfile({ id }: { id: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {!client.hasGoogleProfile && (
+          <p className="mb-5 rounded-lg border bg-muted/50 px-3 py-2 text-sm">
+            Google Business Profile is switched off for this client. These are past snapshots. No new ones
+            are taken.
+          </p>
+        )}
         {snapshots.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No Google profile snapshots yet. Run a report to take the first one.

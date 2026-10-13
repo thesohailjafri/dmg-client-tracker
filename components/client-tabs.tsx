@@ -13,12 +13,14 @@ const TABS = [
 ];
 
 // The sections of a client page. Each is its own URL, so a tab can be linked to.
-export function ClientTabs({ clientId }: { clientId: string }) {
+// `googleProfile` is false for a client that has no Google profile and never had one: there is
+// nothing for that tab to show.
+export function ClientTabs({ clientId, googleProfile }: { clientId: string; googleProfile: boolean }) {
   const pathname = usePathname();
 
   return (
     <nav aria-label="Client sections" className="mt-6 flex gap-1 border-b">
-      {TABS.map((tab) => {
+      {TABS.filter((tab) => googleProfile || tab.path !== "/google-profile").map((tab) => {
         const href = `/clients/${clientId}${tab.path}`;
         const current = pathname === href;
         return (

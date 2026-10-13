@@ -1,6 +1,7 @@
 # Requirement specification: Google Business Profile as a per-client setting
 
-Status: draft for review. Nothing is built yet.
+Status: all decisions made on 2026-10-13 (section 10). Built on 2026-10-13; what was added while
+building is in section 11.
 
 ## 1. Problem
 
@@ -17,9 +18,9 @@ Google sections.
 
 Whether a client has a Google Business Profile becomes a setting on that client.
 
-- **Has one:** everything works as it does today. No change.
-- **Has none:** nothing about Google is collected, shown or mentioned for that client: not in the
-  app, not in the report email, not in the welcome email, not on the client's link. The rest of
+- **On:** everything works as it does today. No change.
+- **Off:** nothing new about Google is collected, and nothing about Google is shown or said to the
+  client: not in the report email, not in the welcome email, not on the client's link. The rest of
   the product (website traffic, leads, directories, schedules, emails) works as normal.
 
 Reading of the brief: the setting is per client, not one switch for the whole app.
@@ -41,173 +42,210 @@ Reading of the brief: the setting is per client, not one switch for the whole ap
 ## 4. The setting
 
 **R1.** The client form's Business section has a checkbox: **"This business has a Google Business
-Profile"**. It is ticked for a new client.
+Profile"**. It is ticked for a new client. Its help text: *"Untick if the business has none. Saved
+Google links are kept and come back when you tick it again."*
 
-**R2.** While ticked, the three Google fields show as they do today: Google Maps profile link
+**R2.** The setting is saved on the client as its own on/off value (`hasGoogleProfile`). A client
+saved before the setting existed counts as on.
+
+**R3.** While ticked, the three Google fields show as they do today: Google Maps profile link
 (required), Google review link (optional), Google Place ID (optional).
 
-**R3.** While unticked, the three Google fields are hidden and the client is saved with all three
-empty.
+**R4.** While unticked, the three Google fields are hidden and none is required. Whatever was
+saved in them stays saved, untouched. Ticking the box again shows them filled in as they were.
 
-**R4.** A client has a Google profile when its Maps link is filled in. There is no separate stored
-flag: an empty Maps link means "no Google profile", the same way an empty Umami website ID already
-means "no website traffic". (See open question Q1 for the alternative.)
+**R5.** While the setting is off, the saved Google links are ignored by every feature. The on/off
+value decides, never whether a link happens to be filled in. This is checked in one shared place
+so no feature can read a kept link by mistake.
 
-**R5.** A client must have at least one thing to report on: a Google profile or an Umami website
-ID. Saving with neither is refused with the message *"Add a Google Business Profile or an Umami
-website ID. A report needs at least one."* (See Q2.)
+**R6.** A client can be saved with neither a Google profile nor an Umami website ID. It is a
+record only (details, contacts, directories) until one of the two is added. See 5.10.
 
-**R6.** The server enforces R3 to R5, not only the form. A review link or Place ID sent without a
-Maps link is saved empty.
+**R7.** The server enforces R3 and R4, not only the form: the Maps link is required exactly when
+the setting is on.
 
-**R7.** Every existing client already has a Maps link, so every existing client keeps working
-exactly as now. No data migration.
+**R8.** Every existing client counts as on (R2) and already has a Maps link, so every existing
+client keeps working exactly as now. No data migration.
 
-## 5. Requirements for a client with no Google profile
+## 5. Requirements for a client with the setting off
 
 ### 5.1 Report run
 
-**R8.** No screenshot is taken: no call to the Worker, no image in R2, no `screenshots` document,
+**R9.** No screenshot is taken: no call to the Worker, no image in R2, no `screenshots` document,
 and the run log has no `screenshotId`.
 
-**R9.** The Places API is not called: no figures read, no search for a Place ID.
+**R10.** The Places API is not called: no figures read, no search for a Place ID, even when a
+Place ID is still saved.
 
-**R10.** The AI is still asked for the summary, insights and recommendations, from the website
+**R11.** The AI is still asked for the summary, insights and recommendations, from the website
 and lead figures alone. It gets no image and a prompt with no screenshot instructions, and it
 returns no listing note. `screenshotFindings` is saved empty.
 
-**R11.** The run succeeds. A missing Google profile is never a failure or a warning on the run.
+**R12.** The run succeeds. A switched-off Google profile is never a failure or a warning on the
+run.
 
 ### 5.2 Weekly Google reading
 
-**R12.** The weekly pull skips the client.
+**R13.** The weekly pull skips the client, even when a Place ID is still saved.
 
-**R13.** The pull's "unmatched" count covers only clients that have a Google profile but no Place
-ID yet. A client with no profile is not reported as unmatched.
+**R14.** The pull's "unmatched" count covers only clients with the setting on and no Place ID
+yet.
 
 ### 5.3 Report email (client-facing)
 
-**R14.** No "Google profile" figures block, in the HTML or the plain-text version.
+**R15.** No "Google profile" figures block, in the HTML or the plain-text version.
 
-**R15.** The summary sentence written in code says nothing about Google. The AI is given no
+**R16.** The summary sentence written in code says nothing about Google. The AI is given no
 Google facts, so its wording cannot mention any.
 
-**R16.** This holds for any run of that client, including the preview of a run made while the
-client still had a profile. Google figures reach a client-facing email only while the setting is
-on.
+**R17.** This holds for any run of that client, including the preview of a run made while the
+setting was still on. Google figures reach a client-facing email only while the setting is on.
 
 ### 5.4 Welcome email (client-facing)
 
-**R17.** The email no longer assumes a Google profile. Its introduction has one fixed wording per
+**R18.** The email no longer assumes a Google profile. Its introduction has one fixed wording per
 case (section 7). Nothing else in the email changes.
 
 ### 5.5 Client page (team)
 
-**R18.** The **Google profile** tab is not shown. Opening its address directly shows one line,
-*"This client has no Google Business Profile."*, with a link to the Edit tab. It is not an error
-page.
+**R19.** **Google profile tab.** Past snapshots stay viewable by the team:
+- Setting off and the client has past snapshots: the tab is shown, with a notice at the top:
+  *"Google Business Profile is switched off for this client. These are past snapshots. No new
+  ones are taken."*
+- Setting off and no snapshots (the client never had a profile): the tab is not shown. Opening
+  its address directly shows one line, *"This client has no Google Business Profile."*, with a
+  link to the Edit tab. It is not an error page.
 
-**R19.** Overview, Actions: these buttons are not shown: Open Google profile, Copy Google profile
+**R20.** Overview, Actions: these buttons are not shown: Open Google profile, Copy Google profile
 link, Copy Google review link, Review QR code, Review request banner.
 
-**R20.** Overview, Growth: the "Google profile" figures block is not shown.
+**R21.** Overview, Growth: the "Google profile" figures block is not shown. That card is for
+current figures, and old ones would read as current. The history is on the Google profile tab.
 
-**R21.** Overview, Business details: the three Google rows (Maps profile, review link, Place ID)
-are replaced by one row, **Google Business Profile: None**, so the team can tell a deliberate
-"none" from something forgotten.
+**R22.** Overview, Business details: the three Google rows (Maps profile, review link, Place ID)
+are replaced by one row, **Google Business Profile: Switched off**.
 
-**R22.** Wording that takes a Google profile for granted is adjusted: the Public directories
+**R23.** Wording that takes a Google profile for granted is adjusted: the Public directories
 description ("besides Google Maps"), the directories help text on the form ("The Google Maps
 profile is already saved above"), the client page's header line, and the client-link description
 on the Report tab.
 
-**R23.** Edit, Graphs order: "Google reviews" stays in the list so the order survives, marked
-*(hidden: no Google profile)*. This is how "Website leads" is already marked when no leads are
-ticked.
+**R24.** Edit, Graphs order: "Google reviews" stays in the list so the order survives, marked
+*(hidden: Google profile switched off)*. This is how "Website leads" is already marked when no
+leads are ticked.
 
 ### 5.6 Client list and dashboard (team)
 
-**R24.** Settings client list: no Review link, Review QR code, Review request banner, Open Google
+**R25.** Settings client list: no Review link, Review QR code, Review request banner, Open Google
 Maps profile or Copy Google review link for this client.
 
-**R25.** Dashboard client table: the line under the client's name shows the website address when
-there is one, otherwise nothing. It never renders an empty link.
+**R26.** Dashboard client table: the line under the client's name shows the website address when
+there is one, otherwise nothing. It does not show the kept Maps link.
 
-**R26.** Dashboard recent reports: a run with no screenshot shows no "Open screenshot" link and no
-"what the AI saw" block.
+**R27.** Dashboard recent reports: a run with no screenshot shows no "Open screenshot" link and no
+"what the AI saw" block. Past runs that did take a screenshot keep their link.
 
 ### 5.7 Graphs (team Report tab and the client's link)
 
-**R27.** The "Google reviews" section is left out completely, with no empty-state message. The
-remaining sections keep the client's saved order.
+**R28.** The "Google reviews" section is left out completely, with no empty-state message, on the
+team's Report tab and on the client's link alike. The remaining sections keep the client's saved
+order. The team's Report tab stays an exact preview of what the client sees; past ratings and
+review counts remain readable on the Google profile tab, snapshot by snapshot.
 
-**R28.** "All time" starts at the site's first visit and ignores any old Google readings.
+**R29.** "All time" starts at the site's first visit and ignores old Google readings.
 
 ### 5.8 Client's link (client-facing)
 
-**R29.** Overview tab: no Google Business Profile row, no Google review link row, no Review QR
-code card.
+**R30.** Overview tab: no Google Business Profile row, no Google review link row, no Review QR
+code card, even though the links are still saved.
 
-**R30.** The line under the business name and the link-preview description use the wording for
+**R31.** The line under the business name and the link-preview description use the wording for
 that client's case (section 7).
 
 ### 5.9 Switching an existing client
 
-**R31.** On to off: the Google fields are cleared on save (R3). Everything collected before
-(screenshots, Google readings, images in R2) stays in the database and is hidden everywhere.
-Nothing is deleted. Reports from then on have no Google part.
+**R32.** On to off: the links stay saved (R4) and everything collected before (screenshots,
+Google readings, images in R2) stays. Nothing is deleted. The team can still open the past
+snapshots (R19). The client sees nothing about Google from that moment, and reports from then on
+have no Google part.
 
-**R32.** Off to on: the Maps link is pasted in, the next report run finds the Place ID as it does
-for a new client, and the earlier history shows again. The review graph has a gap for the time
-the setting was off.
+**R33.** Off to on: the saved links are used again with nothing to retype. The next report run
+takes a screenshot, the weekly reading resumes, and the Google sections return everywhere. The
+review graph has a gap for the time the setting was off.
 
-**R33.** Past runs on the dashboard keep their screenshot link. That is a record of what the run
-did, and only the team sees it.
+### 5.10 A client with nothing to report on (no Google profile, no Umami website)
+
+**R34.** It can be saved and edited like any client. Its details, contacts and directories work
+as normal.
+
+**R35.** No report is run for it. The scheduled runs leave it out, so no failed run is logged for
+it each week. The Run and Run & send buttons are disabled with the reason *"Nothing to report on
+yet. Add a Google Business Profile or an Umami website ID."*, and the run API refuses with the
+same message.
+
+**R36.** No welcome email goes out when it is created, because that email promises a growth
+report. Its Overview says *"Not sent: nothing to report on yet"* and the Send welcome button is
+disabled with the same reason. Once a Google profile or Umami website is added, the team sends
+the welcome email by hand with that button.
+
+**R37.** The team's Report tab shows *"Nothing to report on yet. Add a Google Business Profile or
+an Umami website ID on the Edit tab."* instead of graphs.
+
+**R38.** Its client link still works. The Overview tab shows the business details and
+directories. The Report tab shows one fixed line instead of graphs (section 7).
 
 ## 6. Behaviour by case
 
 | Google profile | Umami website | Report run | Report email | Client's link, Report tab |
 | --- | --- | --- | --- | --- |
-| Yes | Yes | Screenshot, Places, traffic, AI with image | Google profile, Website, Leads | Traffic, leads, reviews |
-| Yes | No | Screenshot, Places, AI with image | Google profile | As today |
-| **No** | **Yes** | **Traffic only, AI without image** | **Website, Leads** | **Traffic, leads** |
-| No | No | Cannot be saved (R5) | n/a | n/a |
+| On | Yes | Screenshot, Places, traffic, AI with image | Google profile, Website, Leads | Traffic, leads, reviews |
+| On | No | Screenshot, Places, AI with image | Google profile | As today |
+| **Off** | **Yes** | **Traffic only, AI without image** | **Website, Leads** | **Traffic, leads** |
+| **Off** | **No** | **None: record only** | **None** | **One fixed line** |
 
-Only the third row is new behaviour. The first two rows must not change.
+The last two rows are new behaviour. The first two must not change.
 
 ## 7. Client-facing wording
 
-Fixed text chosen in code by case. None of it is written by the AI. The website-only column is
-new and needs sign-off.
+Fixed text chosen in code by case. None of it is written by the AI.
 
-| Where | Website and Google | Website only (new) | Google only |
-| --- | --- | --- | --- |
-| Client's link, line under the name | How your website and Google profile are growing. | How your website is growing. | How your Google profile is growing. |
-| Client's link, preview description | How {name}'s website and Google profile are growing. | How {name}'s website is growing. | How {name}'s Google profile is growing. |
-| Welcome email, introduction | Your growth report is part of your {agency} website package. It shows how your website and your Google profile are growing, and it is always up to date. … | Your growth report is part of your {agency} website package. It shows how your website is growing, and it is always up to date. … | Your growth report is part of your {agency} package. It shows how your Google profile is growing, and it is always up to date. … |
+| Where | Website and Google | Website only | Google only | Neither |
+| --- | --- | --- | --- | --- |
+| Client's link, line under the name | How your website and Google profile are growing. | How your website is growing. | How your Google profile is growing. | Your report is being set up. |
+| Client's link, preview description | How {name}'s website and Google profile are growing. | How {name}'s website is growing. | How {name}'s Google profile is growing. | {agency} Client Tracker. |
+| Client's link, Report tab body | graphs | graphs | graphs | It will appear here once tracking is in place. |
+| Welcome email, introduction | Your growth report is part of your {agency} website package. It shows how your website and your Google profile are growing, and it is always up to date. … | Your growth report is part of your {agency} website package. It shows how your website is growing, and it is always up to date. … | Your growth report is part of your {agency} package. It shows how your Google profile is growing, and it is always up to date. … | not sent (R36) |
+
+All wording in this table was approved on 2026-10-13.
 
 Side effect: the client's link currently says "website and Google profile" even for a Google-only
 client. The Google-only column fixes that.
 
 ## 8. Acceptance checks
 
-1. A new client can be saved with the box unticked and an Umami website ID. No Google field is
-   asked for.
-2. Saving with the box unticked and no Umami website ID is refused with the R5 message, from the
-   form and from the API.
-3. Running a report for that client: succeeds, makes no Worker call and no Places call, writes no
-   `screenshots` document, and the email has no Google block and no Google wording.
-4. That client's page has no Google profile tab, no Google or review buttons, and "Google Business
-   Profile: None" in its details.
-5. That client's link shows only traffic and leads on Report, and no Google rows or QR code on
+1. A new client can be saved with the box unticked. No Google field is asked for.
+2. Running a report for a client with the setting off and an Umami website: succeeds, makes no
+   Worker call and no Places call, writes no `screenshots` document, and the email has no Google
+   block and no Google wording.
+3. That client's page has no Google or review buttons and shows "Google Business Profile:
+   Switched off" in its details.
+4. That client's link shows only traffic and leads on Report, and no Google rows or QR code on
    Overview. The word "Google" does not appear on either tab.
-6. The welcome email preview for that client does not contain the word "Google".
-7. The weekly Google pull does not read that client and does not count it as unmatched.
-8. Unticking the box on an existing client and saving: its old screenshots and readings are still
-   in the database, are shown nowhere, and its next report has no Google part.
-9. Ticking it again with a Maps link: the Google profile tab returns with the old snapshots, and
-   the next run finds the Place ID.
-10. An existing client that was not touched behaves exactly as before: same run, same email, same
+5. The welcome email preview for that client does not contain the word "Google".
+6. The weekly Google pull does not read that client, with or without a saved Place ID, and does
+   not count it as unmatched.
+7. Unticking the box on an existing client and saving: its Maps link, review link and Place ID are
+   still in the database unchanged. Its Google profile tab still opens for the team, with the
+   notice, and shows the old snapshots. Its client link and next report email show nothing about
+   Google.
+8. Ticking it again: the three fields are filled in as before with nothing retyped, and the next
+   run takes a screenshot.
+9. A client that never had a profile has no Google profile tab.
+10. A client with neither source can be saved. It gets no welcome email, its Run buttons are
+    disabled with the reason, the scheduled run skips it without logging a failure, and its client
+    link shows the fixed line on Report.
+11. Adding an Umami website ID to that client enables the Run buttons and the Send welcome button.
+12. An existing client that was not touched behaves exactly as before: same run, same email, same
     pages.
 
 ## 9. Out of scope
@@ -219,23 +257,39 @@ client. The Google-only column fixes that.
 - The empty-state message a Google-only client sees in the traffic section of its link. That is
   existing behaviour.
 
-## 10. Open questions
+## 10. Decisions (2026-10-13)
 
-**Q1. Switching off: clear the Google links, or keep them behind a stored on/off flag?**
-Recommended: clear them (R3, R4). One rule, no new field, and the checks already in the code for
-an empty review link and Place ID keep working. Cost: switching back on means pasting the Maps
-link again. The alternative keeps the links and adds a stored flag that every Google feature has
-to check as well.
+| Question | Decision | Requirements |
+| --- | --- | --- |
+| Switching off: wipe the saved Google links or keep them? | **Keep them, switched off.** Ticking the box again restores them. | R2, R4, R5 |
+| Old Google snapshots after switching off: hidden from the team too? | **Team can still see them.** The client never does. | R19, R32 |
+| No Google profile and no Umami website: refuse to save? | **Allow it** as a record-only client with no reports. | R6, 5.10 |
+| Website-only welcome email sentence | **Approved as written.** | Section 7 |
+| Line on the client's link for a client with nothing to report on | **Approved:** "Your report is being set up. It will appear here once tracking is in place." | R38, section 7 |
+| Review graph on the team's Report tab while the setting is off | **Hidden there too** (default, no objection raised). | R28 |
 
-**Q2. A client with neither a Google profile nor an Umami website: refuse to save, or allow it as
-a record with no reports?**
-Recommended: refuse (R5). Today no client can exist without a Google profile, so nothing that
-works now stops working, and no client ever gets an empty report.
+## 11. Added while building
 
-**Q3. Old Google snapshots after switching off: hidden from the team as well, or still viewable?**
-Recommended: hidden (R18, R31), so "off" means the same thing everywhere. They return if the
-setting is switched back on.
+Things the spec did not cover, and what was done about each.
 
-**Q4. Is the website-only wording in section 7 approved?**
-The welcome email is the agency's own pitch, so the new sentence needs a yes before it is sent to
-a client.
+**The review link, review messages and visiting card arrived in the app after this spec was
+written.** They follow R5 like everything else. While the setting is off:
+- The public review link (`/review/<name>`) answers "This review link is not active", so a link
+  or printed QR code already out with customers stops sending them to Google. It works again as
+  soon as the setting is switched back on.
+- The Review link card, Copy review link and Copy review message are not shown on the client's
+  Overview.
+- The visiting card stays available. Its "Google review" and "Find us on Maps" codes have nothing
+  to point at and are greyed out, like any code whose detail is missing.
+
+**One more guard on the AI's wording (R16).** For a client with the setting off, any sentence
+from the AI that mentions Google, reviews, a rating or a screenshot is dropped before the email
+is built, on top of the AI being given no Google facts.
+
+**The line on the client's link for a client with nothing to report on** is split over two places
+that are read together: "Your report is being set up." under the business name, and "It will
+appear here once tracking is in place." where the graphs would be. Same approved sentence, not
+said twice.
+
+**Report email preview link** stays on the Overview of a client with nothing to report on. It
+answers "No finished report yet", as it does for any client that has never run.

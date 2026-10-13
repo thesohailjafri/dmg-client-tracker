@@ -2,6 +2,7 @@ import { ObjectId } from "mongodb";
 import type { NextRequest } from "next/server";
 import { unauthorized } from "@/lib/auth";
 import { collections } from "@/lib/mongodb";
+import { deleteObject } from "@/lib/r2";
 import { clientActivePatch, clientInput } from "@/lib/schemas";
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/clients/[id]">) {
@@ -28,7 +29,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/client
   return Response.json({ ok: true });
 }
 
-// Removes the client only. Its screenshots, metrics and AI logs stay for the record.
+// Removes the client and its logo. Its screenshots, metrics and AI logs stay for the record.
 export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/clients/[id]">) {
   const denied = unauthorized(request);
   if (denied) return denied;
@@ -37,6 +38,7 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/clien
   if (!ObjectId.isValid(id)) return Response.json({ error: "Not found" }, { status: 404 });
 
   const { clients } = await collections();
-  await clients.deleteOne({ _id: new ObjectId(id) });
+  const removed = await clients.findOneAndDelete({ _id: new ObjectId(id) }, { projection: { logo: 1 } });
+  if (removed?.logo) await deleteObject(removed.logo.r2Key).catch(console.error);
   return Response.json({ ok: true });
 }

@@ -5,6 +5,7 @@ import {
   ChevronDownIcon,
   CopyIcon,
   GlobeIcon,
+  IdCardIcon,
   MapPinIcon,
   MegaphoneIcon,
   PauseIcon,
@@ -16,6 +17,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { VisitingCardDialog } from "@/components/card/visiting-card-dialog";
 import { ReviewBannerDialog } from "@/components/review/review-banner-dialog";
 import { ReviewQrDialog } from "@/components/review/review-qr-dialog";
 import { ScheduleBadges } from "@/components/schedule-badges";
@@ -77,9 +79,10 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
   // id of the client being activated / deactivated
   const [toggling, setToggling] = useState<string | null>(null);
   const [listError, setListError] = useState("");
-  // the client whose review QR code / review banner is open
+  // the client whose review QR code / review banner / visiting card is open
   const [qrFor, setQrFor] = useState<ClientView | null>(null);
   const [bannerFor, setBannerFor] = useState<ClientView | null>(null);
+  const [cardFor, setCardFor] = useState<ClientView | null>(null);
   // id of the client whose review link was just copied
   const [copied, setCopied] = useState<string | null>(null);
 
@@ -90,6 +93,9 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
           client.name,
           client.url,
           client.websiteUrl,
+          client.address,
+          client.businessPhone,
+          client.businessEmail,
           ...client.emails,
           ...client.contacts.flatMap((contact) => [contact.name, contact.phone]),
         ].some((value) => value.toLowerCase().includes(needle)),
@@ -217,7 +223,9 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
                           >
                             {client.name}
                           </Link>
-                          <div className="max-w-64 truncate text-xs text-muted-foreground">{client.url}</div>
+                          {client.url && (
+                            <div className="max-w-64 truncate text-xs text-muted-foreground">{client.url}</div>
+                          )}
                           <div className="flex gap-3 text-xs">
                             {client.websiteUrl && (
                               <a
@@ -292,21 +300,32 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
                                     {client.active ? "Deactivate" : "Activate"}
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => setQrFor(client)}>
-                                    <QrCodeIcon />
-                                    Review QR code
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setBannerFor(client)}>
-                                    <MegaphoneIcon />
-                                    Review request banner
+                                  {/* the review kit and the Google links are for a client with a Google profile */}
+                                  {client.hasGoogleProfile && (
+                                    <>
+                                      <DropdownMenuItem onClick={() => setQrFor(client)}>
+                                        <QrCodeIcon />
+                                        Review QR code
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => setBannerFor(client)}>
+                                        <MegaphoneIcon />
+                                        Review request banner
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  <DropdownMenuItem onClick={() => setCardFor(client)}>
+                                    <IdCardIcon />
+                                    Visiting card
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    render={<a href={client.url} target="_blank" rel="noreferrer" />}
-                                  >
-                                    <MapPinIcon />
-                                    Open Google Maps profile
-                                  </DropdownMenuItem>
+                                  {client.hasGoogleProfile && (
+                                    <DropdownMenuItem
+                                      render={<a href={client.url} target="_blank" rel="noreferrer" />}
+                                    >
+                                      <MapPinIcon />
+                                      Open Google Maps profile
+                                    </DropdownMenuItem>
+                                  )}
                                   {client.websiteUrl && (
                                     <DropdownMenuItem
                                       render={<a href={client.websiteUrl} target="_blank" rel="noreferrer" />}
@@ -316,14 +335,16 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
                                     </DropdownMenuItem>
                                   )}
                                   {/* stays open so the "copied" state is seen */}
-                                  <DropdownMenuItem
-                                    closeOnClick={false}
-                                    disabled={!client.googleReviewUrl}
-                                    onClick={() => copyReviewLink(client)}
-                                  >
-                                    {copied === client.id ? <CheckIcon /> : <CopyIcon />}
-                                    {copied === client.id ? "Review link copied" : "Copy review link"}
-                                  </DropdownMenuItem>
+                                  {client.hasGoogleProfile && (
+                                    <DropdownMenuItem
+                                      closeOnClick={false}
+                                      disabled={!client.googleReviewUrl}
+                                      onClick={() => copyReviewLink(client)}
+                                    >
+                                      {copied === client.id ? <CheckIcon /> : <CopyIcon />}
+                                      {copied === client.id ? "Review link copied" : "Copy review link"}
+                                    </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </ButtonGroup>
@@ -348,6 +369,7 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
         onEdit={(client) => router.push(`/clients/${client.id}/edit`)}
       />
       <ReviewBannerDialog client={bannerFor} onClose={() => setBannerFor(null)} />
+      <VisitingCardDialog client={cardFor} onClose={() => setCardFor(null)} />
 
       <AlertDialog open={deleting !== null} onOpenChange={(open) => !open && !removing && setDeleting(null)}>
         <AlertDialogContent>

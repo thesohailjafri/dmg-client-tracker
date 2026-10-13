@@ -11,6 +11,7 @@ import type { Directory } from "@/lib/schemas";
 export type SharedDetails = {
   name: string;
   websiteUrl: string;
+  // "" for a business with no Google profile, as are the two review links below
   mapsUrl: string;
   // The client's own review link (/review/<business-name>), to share and to print as a QR code.
   // "" when no Google review link is saved.
@@ -65,9 +66,11 @@ export function ShareOverview({ details }: { details: SharedDetails }) {
                 <ExternalLink href={details.websiteUrl} />
               </Detail>
             )}
-            <Detail label="Google Business Profile">
-              <ExternalLink href={details.mapsUrl} />
-            </Detail>
+            {details.mapsUrl && (
+              <Detail label="Google Business Profile">
+                <ExternalLink href={details.mapsUrl} />
+              </Detail>
+            )}
             {details.reviewUrl && (
               <Detail label="Your review link">
                 <ExternalLink href={details.reviewUrl} />
@@ -99,7 +102,9 @@ export function ShareOverview({ details }: { details: SharedDetails }) {
         <Card>
           <CardHeader>
             <CardTitle>Where you are listed</CardTitle>
-            <CardDescription>Your business&apos;s pages on public directories, besides Google.</CardDescription>
+            <CardDescription>
+              Your business&apos;s pages on public directories{details.mapsUrl && ", besides Google"}.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="divide-y">

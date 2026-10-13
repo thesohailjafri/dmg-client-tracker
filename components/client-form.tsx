@@ -1,8 +1,9 @@
 "use client";
 
 import { ArrowDownIcon, ArrowUpIcon, CheckIcon, CopyIcon, ExternalLinkIcon, PlusIcon, XIcon } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,8 @@ import { DEFAULT_PHONE_COUNTRY, toE164 } from "@/lib/phone";
 import {
   GRAPH_SECTIONS,
   LEAD_TYPES,
+  LOGO_MAX_BYTES,
+  LOGO_TYPES,
   SCHEDULES,
   type Contact,
   type Directory,
@@ -148,6 +151,22 @@ export function ClientForm({
     client && client.directories.length > 0 ? client.directories : [BLANK_DIRECTORY],
   );
 
+  const [businessPhone, setBusinessPhone] = useState(client?.businessPhone ?? "");
+  // The logo is saved apart from the rest, once the client itself is: a new file waiting to be
+  // uploaded, what the form shows for it, and whether the saved one is to be removed.
+  const logoInput = useRef<HTMLInputElement>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState(client?.logoUrl ?? "");
+  const [logoRemoved, setLogoRemoved] = useState(false);
+  // A client this form has just created. If its logo then fails to upload, saving again updates
+  // that client instead of adding a second one.
+  const [createdId, setCreatedId] = useState("");
+
+  // Whether the business has a Google Business Profile. Unticked, the Google fields are hidden and
+  // the links already saved go back to the server as they were, so ticking it again restores them.
+  const [hasGoogle, setHasGoogle] = useState(client?.hasGoogleProfile ?? true);
+  const savedGoogle = client?.savedGoogle ?? { url: "", googleReviewUrl: "", googlePlaceId: "" };
+
   // controlled so the events and the prompt below the boxes follow what is ticked
   const [leadTypes, setLeadTypes] = useState<LeadType[]>(client?.leadTypes ?? []);
   const [copied, setCopied] = useState(false);
@@ -171,6 +190,44 @@ export function ClientForm({
 
   function setDirectory(index: number, patch: Partial<Directory>) {
     setDirectories((list) => list.map((directory, i) => (i === index ? { ...directory, ...patch } : directory)));
+  }
+
+  function chooseLogo(file: File | undefined) {
+    if (!file) return;
+    const problem = !(file.type in LOGO_TYPES)
+      ? "The logo has to be a PNG, JPG or WebP image."
+      : file.size > LOGO_MAX_BYTES
+        ? "The logo is over 2 MB. Use a smaller file."
+        : "";
+    if (problem) {
+      setError(problem);
+      if (logoInput.current) logoInput.current.value = "";
+      return;
+    }
+    setError("");
+    setLogoFile(file);
+    setLogoRemoved(false);
+    const reader = new FileReader();
+    reader.onload = () => setLogoPreview(String(reader.result));
+    reader.readAsDataURL(file);
+  }
+
+  function removeLogo() {
+    setLogoFile(null);
+    setLogoPreview("");
+    setLogoRemoved(true);
+    if (logoInput.current) logoInput.current.value = "";
+  }
+
+  // Uploads the chosen logo, or removes the saved one. Returns what went wrong, "" when nothing did.
+  async function saveLogo(id: string): Promise<string> {
+    if (!logoFile && !(logoRemoved && client?.logoUrl)) return "";
+    const body = new FormData();
+    if (logoFile) body.set("logo", logoFile);
+    const res = await fetch(`/api/clients/${id}/logo`, logoFile ? { method: "POST", body } : { method: "DELETE" });
+    if (res.ok) return "";
+    const answer = (await res.json().catch(() => ({}))) as { error?: string };
+    return answer.error ?? "The logo could not be saved.";
   }
 
   async function copyPrompt() {
@@ -197,13 +254,17 @@ export function ClientForm({
       contacts: contacts
         .map((contact) => ({ name: contact.name.trim(), phone: contact.phone.trim() }))
         .filter((contact) => contact.name || contact.phone),
-      url: form.get("url"),
+      hasGoogleProfile: hasGoogle,
+      url: hasGoogle ? form.get("url") : savedGoogle.url,
       websiteUrl: withScheme(String(form.get("websiteUrl"))),
+      address: form.get("address"),
+      businessPhone,
+      businessEmail: String(form.get("businessEmail")).trim(),
       directories: directories
         .map((directory) => ({ name: directory.name.trim(), url: withScheme(directory.url) }))
         .filter((directory) => directory.name || directory.url),
-      googleReviewUrl: String(form.get("googleReviewUrl")).trim(),
-      googlePlaceId: form.get("googlePlaceId"),
+      googleReviewUrl: hasGoogle ? String(form.get("googleReviewUrl")).trim() : savedGoogle.googleReviewUrl,
+      googlePlaceId: hasGoogle ? form.get("googlePlaceId") : savedGoogle.googlePlaceId,
       umamiWebsiteId: form.get("umamiWebsiteId"),
       leadTypes,
       graphOrder,
@@ -211,19 +272,28 @@ export function ClientForm({
       active: form.get("active") === "on",
       copyTeam: form.get("copyTeam") === "on",
     };
-    const res = await fetch(client ? `/api/clients/${client.id}` : "/api/clients", {
-      method: client ? "PATCH" : "POST",
+    const existingId = client?.id ?? createdId;
+    const res = await fetch(existingId ? `/api/clients/${existingId}` : "/api/clients", {
+      method: existingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
     const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
-    setPending(false);
     if (!res.ok) {
+      setPending(false);
       setError(body.error ?? "Save failed.");
       return;
     }
     // creating answers with the new id; editing already knows it
-    onSaved(client?.id ?? body.id ?? "");
+    const id = existingId || body.id || "";
+    if (!existingId) setCreatedId(id);
+    const logoProblem = id ? await saveLogo(id) : "";
+    setPending(false);
+    if (logoProblem) {
+      setError(`The client is saved, but its logo is not. ${logoProblem}`);
+      return;
+    }
+    onSaved(id);
   }
 
   return (
@@ -262,75 +332,184 @@ export function ClientForm({
               defaultValue={client?.websiteUrl}
             />
           </Field>
-          <Field
-            label="Google Maps profile link"
-            htmlFor="url"
-            help="Find the business on Google Maps, press Share, then Copy link, and paste it here."
-            action={
-              name.trim() && (
-                <a
-                  href={mapsSearchUrl(name)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex min-w-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
-                >
-                  <span className="truncate">Find on Google Maps</span>
-                  <ExternalLinkIcon className="size-3 shrink-0" />
-                </a>
-              )
-            }
-          >
-            <Input
-              id="url"
-              name="url"
-              type="url"
-              required
-              placeholder="e.g. https://maps.app.goo.gl/Qy7kL2mNp4RsT8vW9"
-              maxLength={2000}
-              pattern={GOOGLE_LINK_PATTERN}
-              title="A Google Maps link, like https://maps.app.goo.gl/Qy7kL2mNp4RsT8vW9"
-              aria-describedby="url-help"
-              defaultValue={client?.url}
+          <Label className="items-start gap-2.5 leading-normal">
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4 accent-primary"
+              checked={hasGoogle}
+              onChange={(event) => setHasGoogle(event.target.checked)}
             />
-          </Field>
-          <Field label="Google review link" htmlFor="googleReviewUrl" optional>
-            <Input
-              id="googleReviewUrl"
-              name="googleReviewUrl"
-              type="url"
-              placeholder="e.g. https://g.page/r/CQx1aBcDeFgHiEBM/review"
-              maxLength={2000}
-              pattern={GOOGLE_LINK_PATTERN}
-              title="A Google review link, like https://g.page/r/CQx1aBcDeFgHiEBM/review"
-              defaultValue={client?.googleReviewUrl}
-            />
-          </Field>
-          <Field
-            label="Google Place ID"
-            htmlFor="googlePlaceId"
-            optional
-            help="Filled in by the first report run. Clear it to search again, or paste the right one if reports show the wrong business."
-            action={
-              <a
-                href={PLACE_ID_FINDER_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="flex min-w-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+            <span>
+              This business has a Google Business Profile
+              <span className="block text-xs font-normal text-muted-foreground">
+                Untick if the business has none. Saved Google links are kept and come back when you tick it
+                again.
+              </span>
+            </span>
+          </Label>
+          {hasGoogle && (
+            <>
+              <Field
+                label="Google Maps profile link"
+                htmlFor="url"
+                help="Find the business on Google Maps, press Share, then Copy link, and paste it here."
+                action={
+                  name.trim() && (
+                    <a
+                      href={mapsSearchUrl(name)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-w-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      <span className="truncate">Find on Google Maps</span>
+                      <ExternalLinkIcon className="size-3 shrink-0" />
+                    </a>
+                  )
+                }
               >
-                <span className="truncate">Visit Finder</span>
-                <ExternalLinkIcon className="size-3 shrink-0" />
-              </a>
-            }
+                <Input
+                  id="url"
+                  name="url"
+                  type="url"
+                  required
+                  placeholder="e.g. https://maps.app.goo.gl/Qy7kL2mNp4RsT8vW9"
+                  maxLength={2000}
+                  pattern={GOOGLE_LINK_PATTERN}
+                  title="A Google Maps link, like https://maps.app.goo.gl/Qy7kL2mNp4RsT8vW9"
+                  aria-describedby="url-help"
+                  defaultValue={savedGoogle.url}
+                />
+              </Field>
+              <Field label="Google review link" htmlFor="googleReviewUrl" optional>
+                <Input
+                  id="googleReviewUrl"
+                  name="googleReviewUrl"
+                  type="url"
+                  placeholder="e.g. https://g.page/r/CQx1aBcDeFgHiEBM/review"
+                  maxLength={2000}
+                  pattern={GOOGLE_LINK_PATTERN}
+                  title="A Google review link, like https://g.page/r/CQx1aBcDeFgHiEBM/review"
+                  defaultValue={savedGoogle.googleReviewUrl}
+                />
+              </Field>
+              <Field
+                label="Google Place ID"
+                htmlFor="googlePlaceId"
+                optional
+                help="Filled in by the first report run. Clear it to search again, or paste the right one if reports show the wrong business."
+                action={
+                  <a
+                    href={PLACE_ID_FINDER_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-w-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    <span className="truncate">Visit Finder</span>
+                    <ExternalLinkIcon className="size-3 shrink-0" />
+                  </a>
+                }
+              >
+                <Input
+                  id="googlePlaceId"
+                  name="googlePlaceId"
+                  placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
+                  spellCheck={false}
+                  pattern="\s*[A-Za-z0-9_\-]{10,300}\s*"
+                  title="Letters, numbers, - and _ only, like ChIJN1t_tDeuEmsRUsoyG83frY4"
+                  aria-describedby="googlePlaceId-help"
+                  defaultValue={savedGoogle.googlePlaceId}
+                />
+              </Field>
+            </>
+          )}
+        </Section>
+
+        <Section
+          title="Contact details"
+          description="The business's own details and logo, as printed on its visiting card."
+        >
+          <Field
+            label="Logo"
+            htmlFor="logo"
+            optional
+            help="PNG, JPG or WebP, up to 2 MB. One with a clear background sits best on the card. Saved with the rest of the form."
+          >
+            <div className="flex items-center gap-3">
+              {logoPreview ? (
+                // our own route or a file just chosen: either way it skips the optimizer
+                <Image
+                  src={logoPreview}
+                  alt="Logo"
+                  width={56}
+                  height={56}
+                  unoptimized
+                  className="size-14 shrink-0 rounded-lg bg-white object-contain p-1 ring-1 ring-foreground/10"
+                />
+              ) : (
+                <div className="flex size-14 shrink-0 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
+                  None
+                </div>
+              )}
+              <Input
+                ref={logoInput}
+                id="logo"
+                type="file"
+                accept={Object.keys(LOGO_TYPES).join(",")}
+                aria-describedby="logo-help"
+                className="min-w-0 flex-1"
+                onChange={(event) => chooseLogo(event.target.files?.[0])}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                disabled={!logoPreview}
+                onClick={removeLogo}
+              >
+                Remove
+              </Button>
+            </div>
+          </Field>
+          <Field label="Address" htmlFor="address" optional>
+            <Input
+              id="address"
+              name="address"
+              placeholder="e.g. 14 MG Road, Andheri West, Mumbai 400058"
+              maxLength={200}
+              autoComplete="off"
+              defaultValue={client?.address}
+            />
+          </Field>
+          <Field
+            label="Business phone"
+            htmlFor="businessPhone"
+            optional
+            help="The number customers call. The people we deal with go under Contacts below."
+          >
+            <PhoneInput
+              id="businessPhone"
+              placeholder="e.g. 98765 43210"
+              aria-describedby="businessPhone-help"
+              defaultCountry={DEFAULT_PHONE_COUNTRY}
+              value={toE164(businessPhone)}
+              onChange={setBusinessPhone}
+            />
+          </Field>
+          <Field
+            label="Business email"
+            htmlFor="businessEmail"
+            optional
+            help="The address customers write to. Reports are not sent here: they go to the recipients below."
           >
             <Input
-              id="googlePlaceId"
-              name="googlePlaceId"
-              placeholder="e.g. ChIJN1t_tDeuEmsRUsoyG83frY4"
-              spellCheck={false}
-              pattern="\s*[A-Za-z0-9_\-]{10,300}\s*"
-              title="Letters, numbers, - and _ only, like ChIJN1t_tDeuEmsRUsoyG83frY4"
-              aria-describedby="googlePlaceId-help"
-              defaultValue={client?.googlePlaceId}
+              id="businessEmail"
+              name="businessEmail"
+              type="email"
+              placeholder="e.g. hello@okauto.in"
+              maxLength={200}
+              aria-describedby="businessEmail-help"
+              defaultValue={client?.businessEmail}
             />
           </Field>
         </Section>
@@ -401,8 +580,8 @@ export function ClientForm({
               Add directory
             </Button>
             <p className="text-xs text-muted-foreground">
-              Paste the link to the business&apos;s own page on each directory. The Google Maps profile is
-              already saved above.
+              Paste the link to the business&apos;s own page on each directory.
+              {hasGoogle && " The Google Maps profile is already saved above."}
             </p>
           </div>
         </Section>
@@ -645,6 +824,9 @@ export function ClientForm({
                     {GRAPH_SECTION_LABELS[key]}
                     {key === "leads" && leadTypes.length === 0 && (
                       <span className="text-muted-foreground"> (hidden: no leads ticked)</span>
+                    )}
+                    {key === "reviews" && !hasGoogle && (
+                      <span className="text-muted-foreground"> (hidden: Google profile switched off)</span>
                     )}
                   </span>
                   <Button

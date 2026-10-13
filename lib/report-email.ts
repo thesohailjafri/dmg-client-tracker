@@ -12,7 +12,14 @@ import {
   type ReportFigures,
   type Traffic,
 } from "./report-figures";
-import { PERIOD_DAYS, type AiLogDoc, type ClientDoc, type MetricsDoc, type PlaceFacts } from "./schemas";
+import {
+  googleOn,
+  PERIOD_DAYS,
+  type AiLogDoc,
+  type ClientDoc,
+  type MetricsDoc,
+  type PlaceFacts,
+} from "./schemas";
 import { shareUrl } from "./share";
 
 const DAY = 86_400_000;
@@ -51,7 +58,12 @@ export async function runFigures(
     run.screenshotId ? screenshots.findOne({ _id: run.screenshotId }) : null,
   ]);
   const traffic = trafficOf(metricsDoc);
-  const google = await googleFigures(client._id.toString(), screenshot?.place ?? null, start, periodDays);
+  // Google's figures go in only while the client's Google profile is switched on. That holds for a
+  // run from before it was switched off too: its email is rebuilt without them.
+  const googleProfile = googleOn(client);
+  const google = googleProfile
+    ? await googleFigures(client._id.toString(), screenshot?.place ?? null, start, periodDays)
+    : null;
   const figures = reportFigures({
     clientName: client.name,
     periodDays,
@@ -59,6 +71,7 @@ export async function runFigures(
     leadTypes: client.leadTypes ?? [],
     events: metricsDoc?.events,
     google,
+    googleProfile,
   });
   return { figures, traffic, google, periodDays, start };
 }

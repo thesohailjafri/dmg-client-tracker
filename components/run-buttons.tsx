@@ -22,10 +22,13 @@ export function RunButtons({
   clientId,
   clientName,
   schedules,
+  blocked = "",
 }: {
   clientId: string;
   clientName: string;
   schedules: Schedule[];
+  // Why no report can be run for this client, shown under the disabled buttons. "" = it can.
+  blocked?: string;
 }) {
   const router = useRouter();
   const [period, setPeriod] = useState<Schedule>(schedules[0] ?? "weekly");
@@ -58,7 +61,7 @@ export function RunButtons({
           size="sm"
           aria-label={`Report period for ${clientName}`}
           value={period}
-          disabled={pending !== null}
+          disabled={pending !== null || blocked !== ""}
           onChange={(event) => setPeriod(event.target.value as Schedule)}
         >
           {SCHEDULES.map((schedule) => (
@@ -67,10 +70,10 @@ export function RunButtons({
             </NativeSelectOption>
           ))}
         </NativeSelect>
-        <Button variant="outline" size="sm" disabled={pending !== null} onClick={() => run(false)}>
+        <Button variant="outline" size="sm" disabled={pending !== null || blocked !== ""} onClick={() => run(false)}>
           {pending === "run" ? "Running…" : "Run"}
         </Button>
-        <Button size="sm" disabled={pending !== null} onClick={() => setConfirming(true)}>
+        <Button size="sm" disabled={pending !== null || blocked !== ""} onClick={() => setConfirming(true)}>
           {pending === "send" ? "Sending…" : "Run & send"}
         </Button>
       </div>
@@ -95,6 +98,7 @@ export function RunButtons({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {blocked && <p className="max-w-64 text-right text-xs whitespace-normal text-muted-foreground">{blocked}</p>}
       {error && (
         <p role="alert" className="max-w-64 text-right text-xs whitespace-normal text-destructive">
           {error}

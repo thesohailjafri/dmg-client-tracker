@@ -57,6 +57,8 @@ export const directoryInput = z.object({
 });
 export type Directory = z.infer<typeof directoryInput>;
 
+const MAPS_LINK_ERROR = "Paste the business's Google Maps link, like https://maps.app.goo.gl/Qy7kL2mNp4RsT8vW9";
+
 export const clientInput = z.object({
   // The business name, as it appears on Google Maps.
   name: z
@@ -74,12 +76,33 @@ export const clientInput = z.object({
     ),
   // People at the business and their phone numbers. Stored only; reports go to `emails`.
   contacts: z.array(contactInput).max(10, "A client can have 10 contacts at most").default([]),
+  // Whether the business has a Google Business Profile. Off = nothing about Google is collected, or
+  // shown or said to the client. The Google links below stay saved while it is off and are ignored
+  // (see googleOn), so ticking it again brings them back. A client from before this existed is on.
+  hasGoogleProfile: z.boolean().default(true),
   // The page the report screenshots: the business's own Maps share link (maps.app.goo.gl/...),
   // which opens the same profile every time. A search URL works too but its results can shift.
-  url: googleUrl("Paste the business's Google Maps link, like https://maps.app.goo.gl/Qy7kL2mNp4RsT8vW9"),
+  // Needed while the business has a Google profile: checked at the end of this schema.
+  url: z.union([z.literal(""), googleUrl(MAPS_LINK_ERROR)]).default(""),
   // The client's own website. Stored and linked to only; the report does not read it.
   websiteUrl: z
     .union([z.literal(""), webUrl("Enter a valid website address, like https://www.okauto.in")])
+    .default(""),
+  // The business's own contact details, as printed on its visiting card. Stored only: reports go
+  // to `emails`, and `contacts` are the people we deal with.
+  address: z.string().trim().max(200, "Keep the address under 200 characters").default(""),
+  businessPhone: z
+    .union([
+      z.literal(""),
+      z
+        .string()
+        .trim()
+        .regex(/^\+?[\d\s().-]{5,30}$/, "Enter a valid business phone number")
+        .refine(isCompletePhone, "The business phone number is not complete for its country"),
+    ])
+    .default(""),
+  businessEmail: z
+    .union([z.literal(""), z.email("Enter a valid business email, like hello@okauto.in")])
     .default(""),
   // Where else the business is listed, kept in one place to look up. Stored only.
   directories: z
@@ -133,8 +156,36 @@ export const clientInput = z.object({
   // The team inbox gets a hidden copy (BCC) of every email this client is sent: the welcome and
   // each report, scheduled or run by hand. Off unless ticked.
   copyTeam: z.boolean().default(false),
-});
+})
+  // a business with a Google profile has to say where it is; one without needs no Google link at all
+  .refine((client) => !client.hasGoogleProfile || client.url !== "", { path: ["url"], error: MAPS_LINK_ERROR });
 export type ClientInput = z.infer<typeof clientInput>;
+
+// Whether Google is switched on for a client. The one rule every Google feature goes by: while it
+// is off, the Maps link, review link and Place ID that stay saved on the client count for nothing.
+// A client saved before the setting existed has no value for it and is on.
+export function googleOn(client: { hasGoogleProfile?: boolean }): boolean {
+  return client.hasGoogleProfile !== false;
+}
+
+// Whether there is anything to put in a report: a Google profile or a website in Umami. A client
+// with neither is a record only, and gets no report runs and no welcome email until it has one.
+export function reportable(client: { hasGoogleProfile?: boolean; umamiWebsiteId?: string }): boolean {
+  return googleOn(client) || Boolean(client.umamiWebsiteId);
+}
+export const NOTHING_TO_REPORT = "Nothing to report on yet. Add a Google Business Profile or an Umami website ID.";
+
+// The image types a logo can be. No SVG: one served from our own address could run script.
+export const LOGO_TYPES = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" } as const;
+export type LogoType = keyof typeof LOGO_TYPES;
+export const LOGO_MAX_BYTES = 2 * 1024 * 1024;
+
+export type ClientLogo = {
+  r2Key: string;
+  contentType: LogoType;
+  bytes: number;
+  uploadedAt: Date;
+};
 
 // Activate / deactivate from the clients table without resending the whole client.
 export const clientActivePatch = z.strictObject({ active: z.boolean() });
@@ -149,6 +200,9 @@ export type ClientDoc = ClientInput & {
   // kept through a rename, because the link is out with the business's customers and on printed QR
   // codes. Never set by the client form.
   reviewSlug?: string;
+  // The business's logo, kept in R2 (lib/r2.ts). Set and removed by /api/clients/[id]/logo, never
+  // by the client form's own save. Absent = no logo.
+  logo?: ClientLogo;
   // How the welcome email went when the client was created. Absent on clients from before it existed.
   welcomeEmail?: EmailResult & { at: Date };
   lastRunAt?: Date;
@@ -284,7 +338,7 @@ export type AiLogDoc = {
   period: Schedule; // which report this was. Logs from when there was a daily report say "daily"
   status: "ok" | "failed";
   error?: string;
-  screenshotId?: ObjectId;
+  screenshotId?: ObjectId; // absent on a run for a client with no Google profile: none is taken
   metricsId?: ObjectId;
   model?: string;
   output?: AiOutput;

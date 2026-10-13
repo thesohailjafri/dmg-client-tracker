@@ -4,7 +4,7 @@ import { ClientTabs } from "@/components/client-tabs";
 import { HeaderLoader } from "@/components/loader";
 import { Nav } from "@/components/nav";
 import { ScheduleBadges } from "@/components/schedule-badges";
-import { getClient, requireSession } from "@/lib/data";
+import { getClient, hasGbpSnapshots, requireSession } from "@/lib/data";
 
 // One client: its name and tabs here, the tab's content in the page below.
 // The id is only known at request time, so everything that reads it (or the URL) sits in Suspense.
@@ -47,6 +47,9 @@ async function ClientHeader({ id }: { id: string }) {
     );
   }
 
+  // The Google profile tab stays for a client whose profile is switched off but has past snapshots.
+  const googleProfile = client.hasGoogleProfile || (await hasGbpSnapshots(client.id));
+
   return (
     <header className="pt-10 pb-8">
       <div className="flex flex-wrap items-center gap-3">
@@ -54,9 +57,11 @@ async function ClientHeader({ id }: { id: string }) {
         <ScheduleBadges schedules={client.schedules} active={client.active} />
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Growth, analytics snapshots and Google profile snapshots.
+        {googleProfile
+          ? "Growth, analytics snapshots and Google profile snapshots."
+          : "Growth and analytics snapshots."}
       </p>
-      <ClientTabs clientId={client.id} />
+      <ClientTabs clientId={client.id} googleProfile={googleProfile} />
     </header>
   );
 }

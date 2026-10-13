@@ -235,16 +235,20 @@ export function renderWelcomeEmail(welcome: {
   // only the reports this client is on are promised
   schedules: Schedule[]
   // whether the client's website is tracked (an Umami website is connected). Without it the report
-  // has no website figures, so the email does not speak of the website at all. The Google profile
-  // is always spoken of: no client can be saved without one.
+  // has no website figures, so the email does not speak of the website at all.
   website: boolean
+  // whether the client has a Google profile. Without it the email does not speak of Google at all.
+  // One of the two is always true: a client with neither gets no welcome email (lib/welcome.ts).
+  google: boolean
   // whether assets/founder.png is there to put beside the signature
   founderPhoto: boolean
 }): RenderedEmail {
   const glad = 'We are glad to have you here.'
-  const intro = welcome.website
-    ? `Your growth report is part of your ${AGENCY_FULL_NAME} website package. It shows how your website and your Google profile are growing, and it is always up to date. Open it whenever you like, as often as you like.`
-    : `Your growth report is part of your ${AGENCY_FULL_NAME} package. It shows how your Google profile is growing, and it is always up to date. Open it whenever you like, as often as you like.`
+  const intro = !welcome.website
+    ? `Your growth report is part of your ${AGENCY_FULL_NAME} package. It shows how your Google profile is growing, and it is always up to date. Open it whenever you like, as often as you like.`
+    : welcome.google
+      ? `Your growth report is part of your ${AGENCY_FULL_NAME} website package. It shows how your website and your Google profile are growing, and it is always up to date. Open it whenever you like, as often as you like.`
+      : `Your growth report is part of your ${AGENCY_FULL_NAME} website package. It shows how your website is growing, and it is always up to date. Open it whenever you like, as often as you like.`
   const why = welcome.website
     ? [
         'I have seen the same thing many times. A business owner comes to us after leaving another provider, and the reason is nearly always that they could not see what they were paying for. Nobody showed them how many people were visiting their website, or whether anything was growing.',

@@ -1,7 +1,7 @@
 import { ObjectId } from "mongodb";
 import type { NextRequest } from "next/server";
 import { unauthorized } from "@/lib/auth";
-import { runReport } from "@/lib/pipeline";
+import { ReportRefused, runReport } from "@/lib/pipeline";
 import { SCHEDULES, type Schedule } from "@/lib/schemas";
 
 // Screenshot + OpenAI + email for one client takes 20-60s.
@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Run failed" },
-      { status: 500 },
+      // turned away before it started: the client has nothing to report on
+      { status: error instanceof ReportRefused ? 400 : 500 },
     );
   }
 }

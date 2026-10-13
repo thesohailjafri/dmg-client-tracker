@@ -8,6 +8,7 @@ import { gbpChanges, keyNumbers, periodLabel, type KeyNumber } from "./format";
 import { formRows, leadFigures, silentLeadTypes, type FormRow } from "./leads";
 import { collections } from "./mongodb";
 import {
+  googleOn,
   graphOrder,
   SCHEDULES,
   type AiOutput,
@@ -28,6 +29,14 @@ export type ClientView = ClientInput & {
   shareToken: string;
   // The business name in the client's review link (/review/<slug>). Every client has one.
   reviewSlug: string;
+  // Where the app serves the business's logo from, "" when it has none. The address changes with
+  // every upload, so a browser never shows the one before.
+  logoUrl: string;
+  // The Google links as they are saved, whether or not the Google profile is switched on. Only the
+  // client form reads these, to keep them through a save and show them again when the setting is
+  // ticked. Everything else reads `url`, `googleReviewUrl` and `googlePlaceId`, which are "" while
+  // the setting is off: that is what keeps a saved link from being used by mistake.
+  savedGoogle: { url: string; googleReviewUrl: string; googlePlaceId: string };
   // How the welcome email went, null for a client from before there was one.
   // `to` is where it actually went: the test inbox, not the client, while emails are rerouted.
   // `copied` is the team inbox, when a copy went there too.
@@ -104,6 +113,12 @@ function clientView(doc: ClientDoc): ClientView {
     id: doc._id.toString(),
     shareToken: doc.shareToken ?? "",
     reviewSlug: doc.reviewSlug ?? "",
+    logoUrl: doc.logo ? `/api/clients/${doc._id.toString()}/logo?v=${doc.logo.uploadedAt.getTime()}` : "",
+    savedGoogle: {
+      url: doc.url ?? "",
+      googleReviewUrl: doc.googleReviewUrl ?? "",
+      googlePlaceId: doc.googlePlaceId ?? "",
+    },
     welcomeEmail: doc.welcomeEmail
       ? {
           status: doc.welcomeEmail.status,
@@ -116,11 +131,16 @@ function clientView(doc: ClientDoc): ClientView {
     name: doc.name,
     emails: doc.emails,
     contacts: doc.contacts ?? [],
-    url: doc.url,
+    hasGoogleProfile: googleOn(doc),
+    // "" while the Google profile is switched off, like the review link and Place ID below
+    url: googleOn(doc) ? (doc.url ?? "") : "",
     websiteUrl: doc.websiteUrl ?? "",
+    address: doc.address ?? "",
+    businessPhone: doc.businessPhone ?? "",
+    businessEmail: doc.businessEmail ?? "",
     directories: doc.directories ?? [],
-    googleReviewUrl: doc.googleReviewUrl ?? "",
-    googlePlaceId: doc.googlePlaceId ?? "",
+    googleReviewUrl: googleOn(doc) ? (doc.googleReviewUrl ?? "") : "",
+    googlePlaceId: googleOn(doc) ? (doc.googlePlaceId ?? "") : "",
     umamiWebsiteId: doc.umamiWebsiteId,
     leadTypes: doc.leadTypes ?? [],
     graphOrder: graphOrder(doc.graphOrder),
@@ -186,6 +206,15 @@ export async function listAnalyticsSnapshots(
     silentLeads: silentLeadTypes(leadTypes, docs.flatMap((doc) => (doc.events ? [doc.events] : []))),
   };
 }
+
+// Whether any Google profile screenshot was ever taken for this client. With the Google profile
+// switched off, this is what tells a client that had one (its past snapshots stay viewable) from
+// one that never did.
+export const hasGbpSnapshots = cache(async (clientId: string): Promise<boolean> => {
+  if (!ObjectId.isValid(clientId)) return false;
+  const { screenshots } = await collections();
+  return (await screenshots.countDocuments({ clientId: new ObjectId(clientId) }, { limit: 1 })) > 0;
+});
 
 export async function listGbpSnapshots(clientId: string): Promise<GbpSnapshotView[]> {
   const { screenshots, aiLogs } = await collections();

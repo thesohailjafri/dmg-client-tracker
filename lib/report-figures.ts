@@ -36,6 +36,8 @@ export type ReportFigures = {
   describable: boolean;
   // exactly what the AI is told, and the only numbers its wording may use
   facts: Record<string, unknown>;
+  // true for a client with no Google profile: none of the AI's wording may speak of Google
+  googleFree: boolean;
 };
 
 // The reading a period started from: the one taken nearest its first moment, and within a seventh
@@ -92,7 +94,10 @@ export function reportFigures(input: {
   traffic: Traffic | null;
   leadTypes: LeadType[];
   events: EventCounts | undefined;
+  // null when Google was not read, and always for a client with no Google profile
   google: GoogleFigures | null;
+  // false for a client with no Google profile
+  googleProfile: boolean;
 }): ReportFigures {
   const { traffic, google } = input;
   const leads = leadFigures(input.leadTypes, input.events);
@@ -152,6 +157,7 @@ export function reportFigures(input: {
     comparable: compared.some(Boolean),
     describable: compared.length > 0 && compared.every(Boolean),
     facts,
+    googleFree: !input.googleProfile,
   };
 }
 
@@ -183,11 +189,16 @@ function numbersIn(value: unknown, found: number[] = []): number[] {
   return found;
 }
 
+// What a client with no Google profile is never told about. The AI is given no Google facts for
+// one, so this only catches wording it made up.
+const GOOGLE_TALK = /\b(google|reviews?|ratings?|screenshot)\b/i;
+
 // A sentence may go out when it states something, says it with a number, and every number in it is
 // one the AI was given. The business name is taken out first: "24 Hour Locksmith" is not a figure.
-function sound(sentence: string, clientName: string, allowed: number[]): boolean {
+function sound(sentence: string, clientName: string, allowed: number[], googleFree: boolean): boolean {
   const text = sentence.split(clientName).join(" ");
   if (LOOSE.test(text)) return false;
+  if (googleFree && GOOGLE_TALK.test(text)) return false;
   const cited = (text.match(/\d[\d,]*(?:\.\d+)?/g) ?? []).map((match) => Number(match.replace(/,/g, "")));
   return cited.length > 0 && cited.every((value) => allowed.some((known) => Math.abs(known - value) < 1e-9));
 }
@@ -206,10 +217,11 @@ export function safeText(
 ): { summary: string | null; insights: string[] } {
   if (!figures.describable) return { summary: null, insights: [] };
   const allowed = numbersIn(figures.facts);
+  const { googleFree } = figures;
   return {
-    summary: sound(output.summary, clientName, allowed) ? output.summary.trim() : null,
+    summary: sound(output.summary, clientName, allowed, googleFree) ? output.summary.trim() : null,
     insights: output.insights
-      .filter((insight) => sound(insight, clientName, allowed))
+      .filter((insight) => sound(insight, clientName, allowed, googleFree))
       .slice(0, MAX_INSIGHTS)
       .map((insight) => insight.trim()),
   };

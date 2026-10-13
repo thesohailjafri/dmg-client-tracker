@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { unauthorized } from "@/lib/auth";
 import { collections } from "@/lib/mongodb";
-import { SCHEDULES, type Schedule } from "@/lib/schemas";
+import { reportable, SCHEDULES, type Schedule } from "@/lib/schemas";
 
 // Called by the Cloudflare Worker on each cron tick: which clients belong to this schedule?
 export async function GET(request: NextRequest) {
@@ -13,10 +13,12 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "schedule must be weekly or monthly" }, { status: 400 });
   }
 
-  // Matches every client whose schedules array contains this one.
+  // Matches every client whose schedules array contains this one. A client with nothing to report
+  // on (no Google profile, no Umami website) is left out, so no run is tried and logged as failed.
   const { clients } = await collections();
-  const due = await clients
-    .find({ active: true, schedules: schedule }, { projection: { _id: 1 } })
+  const scheduled = await clients
+    .find({ active: true, schedules: schedule }, { projection: { _id: 1, hasGoogleProfile: 1, umamiWebsiteId: 1 } })
     .toArray();
+  const due = scheduled.filter(reportable);
   return Response.json({ schedule, clientIds: due.map((client) => client._id.toString()) });
 }

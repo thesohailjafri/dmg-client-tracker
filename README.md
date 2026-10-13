@@ -49,13 +49,38 @@ code path in `lib/pipeline.ts`, used by both the cron and the dashboard's **Run*
 
 | Collection | One document per | Key fields |
 | --- | --- | --- |
-| `clients` | client | `name`, `emails[]`, `contacts[]` (`name`, `phone`), `url` (Maps share link), `googleReviewUrl`, `googlePlaceId`, `umamiWebsiteId`, `leadTypes[]`, `graphOrder[]` (order of the graph sections), `schedules[]`, `active`, `copyTeam` (BCC the team inbox on every email to this client), `shareToken` (the graphs link, absent = none), `lastRunAt`, `lastStatus`, `lastError` |
+| `clients` | client | `name`, `emails[]`, `contacts[]` (`name`, `phone`), `hasGoogleProfile` (absent = on), `url` (Maps share link), `googleReviewUrl`, `googlePlaceId`, `umamiWebsiteId`, `leadTypes[]`, `graphOrder[]` (order of the graph sections), `schedules[]`, `active`, `copyTeam` (BCC the team inbox on every email to this client), `shareToken` (the graphs link, absent = none), `lastRunAt`, `lastStatus`, `lastError` |
 | `reviews` | weekly Google reading | `clientId`, `placeId`, `rating`, `reviewCount`, `fetchedAt` |
 | `screenshots` | capture | `clientId`, `url`, `r2Key`, `bytes`, `capturedAt`, `note` (AI's fixed fields: `state`, `rating`, `reviewCount`, `category`, `address`, `phone`, `website`, `hoursShown`, `language`), `place` (Places API: `placeId`, `name`, `address`, `rating`, `reviewCount`), `placeError` |
 | `metrics` | Umami pull | `clientId`, `websiteId`, `periodStart/End`, `current`, `previous`, `topPages`, `topReferrers`, `events` (every event name: `current`, `previous`), `forms` (`started`, `submitted`, `steps`) |
 | `ai_logs` | pipeline run | `clientId`, `trigger`, `period`, `status`, `error`, `screenshotId`, `metricsId`, `model`, `output`, `usage`, `email` |
 
 Indexes are created on first connection. There are no migrations.
+
+## Google Business Profile setting
+
+Not every business has a Google Business Profile, so it is a setting on each client: the **This
+business has a Google Business Profile** box on the client form, ticked by default.
+
+| | Box ticked | Box unticked |
+| --- | --- | --- |
+| Report run | Screenshot, Places API, AI reads the image | No screenshot, no Places API, AI gets the figures alone |
+| Emails and the client's link | Google figures and Google wording | Nothing about Google |
+| Client page | Google profile tab, review kit, Google links | Hidden. The Google profile tab stays if there are past snapshots |
+| Weekly Google reading | Read when a Place ID is saved | Skipped |
+
+Unticking keeps the Maps link, review link and Place ID saved on the client and ignores them:
+ticking again brings everything back. The rule is `googleOn()` in `lib/schemas.ts`, and every
+Google feature goes by it, not by whether a link happens to be filled in. Pages get the links
+through `ClientView` (`lib/data.ts`), where they are empty while the setting is off; only the
+client form reads the saved ones (`savedGoogle`). The public review link (`/review/<name>`) says
+it is not active while the setting is off.
+
+A client with no Google profile and no Umami website has nothing to report on (`reportable()`).
+It can be saved as a record, but gets no report runs (scheduled runs skip it, the Run buttons are
+disabled) and no welcome email until one of the two is added.
+
+Full requirements: `docs/specs/optional-google-profile.md`.
 
 ## Lead tracking
 

@@ -11,6 +11,7 @@ import { getSharedClient, type ClientView } from "@/lib/data";
 import { AGENCY_EMAIL } from "@/lib/env";
 import { loadGraphs } from "@/lib/graph-data";
 import { parseRange, sharePath } from "@/lib/graphs";
+import { reportable } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
 // A client's read-only page, opened from a link the team sends them: the Report tab with their
@@ -21,12 +22,26 @@ import { cn } from "@/lib/utils";
 // nothing else about the client (emails, contacts, IDs, run status) can reach the page.
 
 const TABS = [
-  { key: "report", label: "Report", lead: "How your website and Google profile are growing." },
-  { key: "overview", label: "Overview", lead: "Your business details, as we have them on file." },
+  { key: "report", label: "Report" },
+  { key: "overview", label: "Overview" },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
 
 const AGENCY = process.env.AGENCY_NAME || "DMG";
+
+// What the report is of, in fixed words: the website when it is tracked in Umami, the Google
+// profile when the business has one. `whose` is "your" on the page and "<name>'s" in the link
+// preview. null when there is neither yet, so nothing is claimed to be growing.
+function growing(client: ClientView, whose: string): string | null {
+  const website = Boolean(client.umamiWebsiteId);
+  if (website && client.hasGoogleProfile) return `How ${whose} website and Google profile are growing.`;
+  if (website) return `How ${whose} website is growing.`;
+  if (client.hasGoogleProfile) return `How ${whose} Google profile is growing.`;
+  return null;
+}
+
+// Said in place of the report for a client with nothing to report on yet.
+const BEING_SET_UP = "Your report is being set up.";
 
 // The tab title and the link preview. The business name only goes in once the token has found a
 // client: a link that is not active says nothing about anyone. The preview image beside this file
@@ -35,9 +50,8 @@ export async function generateMetadata({ params }: PageProps<"/share/[slug]/[tok
   const { token } = await params;
   const client = await getSharedClient(token);
   const title = client ? `${client.name}: Growth Report by ${AGENCY}` : `Growth Report by ${AGENCY}`;
-  const description = client
-    ? `How ${client.name}'s website and Google profile are growing. ${AGENCY} Client Tracker.`
-    : `${AGENCY} Client Tracker.`;
+  const subject = client && growing(client, `${client.name}'s`);
+  const description = subject ? `${subject} ${AGENCY} Client Tracker.` : `${AGENCY} Client Tracker.`;
   return {
     title,
     description,
@@ -109,7 +123,11 @@ async function Shared({ slug, token, tab, range }: { slug: string; token: string
           </a>
         </p>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">{client.name}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{TABS.find((item) => item.key === tab)?.lead}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {tab === "overview"
+            ? "Your business details, as we have them on file."
+            : (growing(client, "your") ?? BEING_SET_UP)}
+        </p>
         <nav aria-label="Sections" className="mt-6 flex gap-1 border-b">
           {TABS.map((item) => (
             <Link
@@ -129,8 +147,12 @@ async function Shared({ slug, token, tab, range }: { slug: string; token: string
       <main className="flex flex-col gap-8">
         {tab === "overview" ? (
           <ShareOverview details={sharedDetails(client)} />
-        ) : (
+        ) : reportable(client) ? (
           <SharedReport client={client} basePath={basePath} range={range} />
+        ) : (
+          // no Google profile and no website tracked yet: there are no graphs to draw. Read with the
+          // line under the business name, which says the report is being set up.
+          <p className="text-sm text-muted-foreground">It will appear here once tracking is in place.</p>
         )}
       </main>
     </>

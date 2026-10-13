@@ -2,21 +2,25 @@ import { ObjectId } from "mongodb";
 import type { NextRequest } from "next/server";
 import { collections } from "./mongodb";
 import { reviewAddress } from "./review-link";
-import type { ClickSource } from "./schemas";
+import { googleOn, type ClickSource } from "./schemas";
 
 // What happens behind a client's review link (see lib/review-link.ts): finding the business,
 // sending the visitor on to Google, and counting them on the way.
 
 export type ReviewTarget = { id: string; name: string; googleReviewUrl: string };
 
-// The business behind a review link, or null when nothing answers to that name or the client has
-// no Google review link saved. This runs without a session, so it reads the two fields the link
-// needs and no more.
+// The business behind a review link, or null when nothing answers to that name, the client has
+// no Google review link saved, or its Google profile is switched off (the saved link then counts
+// for nothing: see googleOn). This runs without a session, so it reads the fields the link needs
+// and no more.
 export async function findReviewClient(slug: string): Promise<ReviewTarget | null> {
   if (!/^[a-z0-9-]{1,70}$/.test(slug)) return null;
   const { clients } = await collections();
-  const doc = await clients.findOne({ reviewSlug: slug }, { projection: { name: 1, googleReviewUrl: 1 } });
-  return doc?.googleReviewUrl
+  const doc = await clients.findOne(
+    { reviewSlug: slug },
+    { projection: { name: 1, googleReviewUrl: 1, hasGoogleProfile: 1 } },
+  );
+  return doc?.googleReviewUrl && googleOn(doc)
     ? { id: doc._id.toString(), name: doc.name, googleReviewUrl: doc.googleReviewUrl }
     : null;
 }

@@ -1,5 +1,6 @@
 import { useId } from "react";
 import { QrMarks, type QrStyle } from "@/components/review/qr-code";
+import { BOLD, fitLines, fitSize, HEAVY, Lines } from "@/components/svg-text";
 import { contrast, darkEnough, HEX_COLOR } from "@/lib/color";
 import type { QrMatrix } from "@/lib/qr";
 
@@ -78,72 +79,6 @@ function brandOf(accent: string, poweredBy: boolean): Brand {
     onPrimary: contrast(primary, WHITE) >= 2.4 ? WHITE : INK,
     deep: darkEnough(primary, 9),
   };
-}
-
-// How much wider than regular text the heavier weights set.
-const HEAVY = 1.04;
-const BOLD = 1.06;
-
-// Rough advance width in em. The banner uses whatever system font the machine has, so text is
-// fitted with a margin instead of measured.
-function emWidth(text: string) {
-  let width = 0;
-  for (const char of text) {
-    if (" .,:;'!|iIjl".includes(char)) width += 0.28;
-    else if ("mwMW@%&".includes(char)) width += 0.9;
-    else if (char >= "a" && char <= "z") width += 0.5;
-    else width += 0.64;
-  }
-  return width;
-}
-
-// Largest font size up to `max` that keeps one line of `text` inside `width`.
-function fitSize(text: string, width: number, max: number, scale = 1) {
-  const em = emWidth(text) * scale;
-  return em > 0 ? Math.min(max, Math.floor(width / em)) : max;
-}
-
-function wrapLines(text: string, width: number, size: number) {
-  const lines: string[] = [];
-  let line = "";
-  for (const word of text.trim().split(/\s+/).filter(Boolean)) {
-    const next = line ? `${line} ${word}` : word;
-    if (line && emWidth(next) * size > width) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = next;
-    }
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-// Wraps `text` into at most `maxLines`, stepping the font size down from `size` until it fits.
-function fitLines(text: string, width: number, size: number, maxLines: number) {
-  const smallest = Math.round(size * 0.68);
-  for (let fontSize = size; ; fontSize--) {
-    const lines = wrapLines(text, width, fontSize);
-    if (lines.length <= maxLines || fontSize <= smallest) {
-      return { fontSize, lineHeight: fontSize * 1.36, lines: lines.slice(0, maxLines) };
-    }
-  }
-}
-
-function Lines({
-  lines,
-  lineHeight,
-  ...props
-}: { lines: string[]; lineHeight: number } & React.ComponentProps<"text">) {
-  return (
-    <text {...props}>
-      {lines.map((line, index) => (
-        <tspan key={index} x={props.x} dy={index === 0 ? 0 : lineHeight}>
-          {line}
-        </tspan>
-      ))}
-    </text>
-  );
 }
 
 function starPath(cx: number, cy: number, radius: number) {

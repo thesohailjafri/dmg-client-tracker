@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { listClients, listReports, requireSession, type ClientView, type ReportView } from "@/lib/data";
 import { formatDate } from "@/lib/format";
+import { NOTHING_TO_REPORT, reportable } from "@/lib/schemas";
 
 export default function DashboardPage() {
   return (
@@ -72,14 +73,17 @@ function Clients({ clients }: { clients: ClientView[] }) {
                     <Link href={`/clients/${client.id}`} className="font-medium hover:text-primary hover:underline">
                       {client.name}
                     </Link>
-                    <a
-                      href={client.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block max-w-72 truncate text-xs text-muted-foreground hover:text-primary"
-                    >
-                      {client.url}
-                    </a>
+                    {/* the Google profile, or the website for a client with none */}
+                    {(client.url || client.websiteUrl) && (
+                      <a
+                        href={client.url || client.websiteUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block max-w-72 truncate text-xs text-muted-foreground hover:text-primary"
+                      >
+                        {client.url || client.websiteUrl}
+                      </a>
+                    )}
                   </TableCell>
                   <TableCell>
                     <ScheduleBadges schedules={client.schedules} active={client.active} />
@@ -97,6 +101,7 @@ function Clients({ clients }: { clients: ClientView[] }) {
                       clientId={client.id}
                       clientName={client.name}
                       schedules={client.schedules}
+                      blocked={reportable(client) ? "" : NOTHING_TO_REPORT}
                     />
                   </TableCell>
                 </TableRow>
@@ -164,10 +169,13 @@ function Reports({ reports }: { reports: ReportView[] }) {
                           <BulletList title="Insights" items={report.output.insights} />
                           <BulletList title="Recommendations" items={report.output.recommendations} />
                         </div>
-                        <div>
-                          <h3 className="text-xs font-medium text-muted-foreground">Screenshot findings</h3>
-                          <p className="mt-2">{report.output.screenshotFindings}</p>
-                        </div>
+                        {/* empty on a run for a client with no Google profile: nothing was screenshotted */}
+                        {report.output.screenshotFindings && (
+                          <div>
+                            <h3 className="text-xs font-medium text-muted-foreground">Screenshot findings</h3>
+                            <p className="mt-2">{report.output.screenshotFindings}</p>
+                          </div>
+                        )}
                       </>
                     )}
 

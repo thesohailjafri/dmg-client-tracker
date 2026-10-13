@@ -15,8 +15,18 @@ import {
 import { Button } from "@/components/ui/button";
 
 // Sends the client's welcome email, after asking: it goes to the client straight away.
-// `again` when one has already gone out.
-export function SendWelcome({ clientId, clientName, again }: { clientId: string; clientName: string; again: boolean }) {
+// `again` when one has already gone out. `blocked` is why it cannot be sent yet, "" when it can.
+export function SendWelcome({
+  clientId,
+  clientName,
+  again,
+  blocked = "",
+}: {
+  clientId: string;
+  clientName: string;
+  again: boolean;
+  blocked?: string;
+}) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
@@ -40,7 +50,13 @@ export function SendWelcome({ clientId, clientName, again }: { clientId: string;
 
   return (
     <>
-      <Button variant="outline" size="xs" disabled={pending} onClick={() => setConfirming(true)}>
+      <Button
+        variant="outline"
+        size="xs"
+        disabled={pending || blocked !== ""}
+        title={blocked || undefined}
+        onClick={() => setConfirming(true)}
+      >
         {pending ? "Sending…" : label}
       </Button>
       <AlertDialog open={confirming} onOpenChange={setConfirming}>

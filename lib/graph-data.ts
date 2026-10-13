@@ -20,6 +20,8 @@ import { fetchUmamiBucket, fetchUmamiStart } from "./umami";
 export type GraphClient = {
   id: string;
   umamiWebsiteId: string;
+  // false = no Google profile: the reviews section is left out and no Google reading is used
+  hasGoogleProfile: boolean;
   googlePlaceId: string;
   leadTypes: LeadType[];
   // the order this client's sections are shown in
@@ -160,8 +162,9 @@ export async function loadGraphs(client: GraphClient, rangeKey: RangeKey): Promi
   const range = RANGES.find((option) => option.key === rangeKey)!;
   const now = Date.now();
 
+  // With the Google profile switched off, readings from when it was on are not drawn or counted.
   const [readings, siteStart] = await Promise.all([
-    reviewReadings(client.id),
+    client.hasGoogleProfile ? reviewReadings(client.id) : [],
     range.periods === null && client.umamiWebsiteId ? fetchUmamiStart(client.umamiWebsiteId) : null,
   ]);
   // "All time" starts at the first visit or the first Google reading, whichever came first.
@@ -171,7 +174,10 @@ export async function loadGraphs(client: GraphClient, rangeKey: RangeKey): Promi
 
   const list = periods(range.unit, finished, now);
   const traffic = await trafficSections(client, list, range.unit);
-  const sections = [...traffic, reviewSection(client, readings, list, range.unit)];
+  const sections = [
+    ...traffic,
+    ...(client.hasGoogleProfile ? [reviewSection(client, readings, list, range.unit)] : []),
+  ];
   // in the order set for this client on its Edit tab
   const place = (section: GraphSection) => client.graphOrder.indexOf(section.key);
   return {
