@@ -231,6 +231,9 @@ function logoSize(logo: CardLogo | null, w: number, h: number, ground: LogoGroun
   return { w: height * logo.ratio + 2 * pad, h: height + 2 * pad, pad };
 }
 
+// How round the corners of a logo are cut, as a share of its shorter side.
+const LOGO_ROUNDING = 0.16;
+
 type SlotProps = {
   logo: CardLogo | null;
   content: CardContent;
@@ -251,9 +254,15 @@ function LogoSlot({ logo, content, brand, shadow, x, y, w, h, ground, align = "s
   const left = align === "start" ? x : align === "middle" ? x + (w - box.w) / 2 : x + w - box.w;
   const top = y + (h - box.h) / 2;
   const lift = ground === "floating" ? `url(#${shadow})` : undefined;
+  // an image has no corner radius of its own, so the logo is cut to a rounded shape
+  const clip = useId();
   if (logo) {
+    const [width, height] = [box.w - 2 * box.pad, box.h - 2 * box.pad];
     return (
       <>
+        <clipPath id={clip}>
+          <rect x={left + box.pad} y={top + box.pad} width={width} height={height} rx={Math.min(width, height) * LOGO_ROUNDING} />
+        </clipPath>
         {ground !== "light" && (
           <rect
             x={left}
@@ -269,9 +278,10 @@ function LogoSlot({ logo, content, brand, shadow, x, y, w, h, ground, align = "s
           href={logo.src}
           x={left + box.pad}
           y={top + box.pad}
-          width={box.w - 2 * box.pad}
-          height={box.h - 2 * box.pad}
+          width={width}
+          height={height}
           preserveAspectRatio="xMidYMid meet"
+          clipPath={`url(#${clip})`}
         />
       </>
     );
