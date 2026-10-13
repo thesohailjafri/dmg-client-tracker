@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { unauthorized } from "@/lib/auth";
 import { listClients } from "@/lib/data";
 import { collections } from "@/lib/mongodb";
+import { claimReviewSlug } from "@/lib/review-link";
 import { clientInput } from "@/lib/schemas";
 import { newShareToken } from "@/lib/share";
 import { sendWelcome } from "@/lib/welcome";
@@ -28,6 +29,8 @@ export async function POST(request: NextRequest) {
   const _id = new ObjectId();
   const client = { _id, ...parsed.data, shareToken: newShareToken(), createdAt: now, updatedAt: now };
   await clients.insertOne(client);
+  // and with the name in its review link, which it keeps from here on
+  await claimReviewSlug(clients, _id, client.name);
 
   // The client is saved whatever happens to the email: how it went is kept on the client, and it
   // can be sent again from the client's Overview.

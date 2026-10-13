@@ -116,7 +116,7 @@ export function ReviewBannerGenerator({
             />
           </Field>
           <Field
-            label="Google review link"
+            label="Review link"
             htmlFor={`${id}-url`}
             help={
               link && !validLink

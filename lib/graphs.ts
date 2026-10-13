@@ -35,11 +35,10 @@ export function parseRange(value: unknown): RangeKey {
   return RANGES.find((range) => range.key === value)?.key ?? DEFAULT_RANGE;
 }
 
-// A client's read-only graphs link: /share/<business-name>/<token>. The name is there so the link
-// can be recognised and searched for; only the random token finds the client, so the name gives
-// nothing away to guess from, and a link sent before a rename redirects to the current name.
-export function sharePath(name: string, token: string): string {
-  const slug = name
+// A business name as it goes in an address: "OK Auto & Tyre" -> "ok-auto-tyre". Empty for a name
+// with no Latin letters or digits, so each address picks what stands in for it.
+export function nameSlug(name: string): string {
+  return name
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
@@ -47,8 +46,13 @@ export function sharePath(name: string, token: string): string {
     .replace(/^-+|-+$/g, "")
     .slice(0, 60)
     .replace(/-+$/, "");
-  // a name with no Latin letters or digits still needs something in that place
-  return `/share/${slug || "client"}/${token}`;
+}
+
+// A client's read-only graphs link: /share/<business-name>/<token>. The name is there so the link
+// can be recognised and searched for; only the random token finds the client, so the name gives
+// nothing away to guess from, and a link sent before a rename redirects to the current name.
+export function sharePath(name: string, token: string): string {
+  return `/share/${nameSlug(name) || "client"}/${token}`;
 }
 
 export type GraphBucket = {

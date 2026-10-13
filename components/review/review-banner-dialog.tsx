@@ -3,6 +3,7 @@
 import { ReviewBannerGenerator } from "@/components/review/review-banner-generator";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { ClientView } from "@/lib/data";
+import { reviewUrl } from "@/lib/review-link";
 
 // The banner generator, filled in for one client. Open while `client` is set.
 export function ReviewBannerDialog({
@@ -21,7 +22,8 @@ export function ReviewBannerDialog({
           <ReviewBannerGenerator
             key={client.id}
             defaultBusinessName={client.name}
-            defaultReviewUrl={client.googleReviewUrl}
+            // the client's own link, so a scan off the banner is counted
+            defaultReviewUrl={reviewUrl(client, "qr")}
           />
         )}
       </DialogContent>

@@ -59,6 +59,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ClientView } from "@/lib/data";
 import { formatPhone } from "@/lib/phone";
+import { reviewUrl } from "@/lib/review-link";
 
 // What has to be typed into the delete dialog before the button unlocks.
 const DELETE_WORD = "confirm";
@@ -118,7 +119,7 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
 
   async function copyReviewLink(client: ClientView) {
     try {
-      await navigator.clipboard.writeText(client.googleReviewUrl);
+      await navigator.clipboard.writeText(reviewUrl(client));
     } catch {
       setListError(`Could not copy the review link for ${client.name}.`);
       return;
@@ -321,7 +322,7 @@ export function ClientManager({ clients }: { clients: ClientView[] }) {
                                     onClick={() => copyReviewLink(client)}
                                   >
                                     {copied === client.id ? <CheckIcon /> : <CopyIcon />}
-                                    {copied === client.id ? "Review link copied" : "Copy Google review link"}
+                                    {copied === client.id ? "Review link copied" : "Copy review link"}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>

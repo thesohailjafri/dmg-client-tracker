@@ -26,6 +26,8 @@ export type ClientView = ClientInput & {
   id: string;
   // The secret in the client's read-only graphs link, "" when there is no link.
   shareToken: string;
+  // The business name in the client's review link (/review/<slug>). Every client has one.
+  reviewSlug: string;
   // How the welcome email went, null for a client from before there was one.
   // `to` is where it actually went: the test inbox, not the client, while emails are rerouted.
   // `copied` is the team inbox, when a copy went there too.
@@ -101,6 +103,7 @@ function clientView(doc: ClientDoc): ClientView {
   return {
     id: doc._id.toString(),
     shareToken: doc.shareToken ?? "",
+    reviewSlug: doc.reviewSlug ?? "",
     welcomeEmail: doc.welcomeEmail
       ? {
           status: doc.welcomeEmail.status,

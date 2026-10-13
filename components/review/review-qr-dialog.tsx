@@ -14,12 +14,14 @@ import {
 } from "@/components/ui/dialog";
 import type { ClientView } from "@/lib/data";
 import { qrMatrix } from "@/lib/qr";
+import { reviewUrl } from "@/lib/review-link";
 import { downloadPng, downloadSvg, slugify } from "@/lib/svg-export";
 
 // Pixel width of the downloaded PNG.
 const PNG_SIZE = 1024;
 
-// A client's Google review link as a QR code, ready to download. Open while `client` is set.
+// A client's review link as a QR code, ready to download: the client's own link, which counts the
+// scan and sends it on to Google. Open while `client` is set.
 export function ReviewQrDialog({
   client,
   onClose,
@@ -33,7 +35,7 @@ export function ReviewQrDialog({
   const svg = useRef<SVGSVGElement>(null);
   const [error, setError] = useState("");
 
-  const link = client?.googleReviewUrl ?? "";
+  const link = client ? reviewUrl(client, "qr") : "";
   const matrix = useMemo(() => qrMatrix(link), [link]);
 
   async function download(format: "png" | "svg") {

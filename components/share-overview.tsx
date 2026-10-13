@@ -1,6 +1,7 @@
 import { ReviewQr } from "@/components/review/review-qr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { ClientView } from "@/lib/data";
+import { reviewUrl } from "@/lib/review-link";
 import type { Directory } from "@/lib/schemas";
 
 // Everything about a client that its read-only link may show: what is already public about the
@@ -11,7 +12,10 @@ export type SharedDetails = {
   name: string;
   websiteUrl: string;
   mapsUrl: string;
+  // The client's own review link (/review/<business-name>), to share and to print as a QR code.
+  // "" when no Google review link is saved.
   reviewUrl: string;
+  reviewQrUrl: string;
   directories: Directory[];
 };
 
@@ -20,7 +24,8 @@ export function sharedDetails(client: ClientView): SharedDetails {
     name: client.name,
     websiteUrl: client.websiteUrl,
     mapsUrl: client.url,
-    reviewUrl: client.googleReviewUrl,
+    reviewUrl: reviewUrl(client),
+    reviewQrUrl: reviewUrl(client, "qr"),
     directories: client.directories.map(({ name, url }) => ({ name, url })),
   };
 }
@@ -64,8 +69,11 @@ export function ShareOverview({ details }: { details: SharedDetails }) {
               <ExternalLink href={details.mapsUrl} />
             </Detail>
             {details.reviewUrl && (
-              <Detail label="Google review link">
+              <Detail label="Your review link">
                 <ExternalLink href={details.reviewUrl} />
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Share it with your customers. It opens your Google review page.
+                </span>
               </Detail>
             )}
           </dl>
@@ -82,7 +90,7 @@ export function ShareOverview({ details }: { details: SharedDetails }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ReviewQr link={details.reviewUrl} name={details.name} />
+            <ReviewQr link={details.reviewQrUrl} name={details.name} />
           </CardContent>
         </Card>
       )}

@@ -1,7 +1,8 @@
 import dns from "node:dns";
 import { MongoClient, type Db } from "mongodb";
 import { env } from "./env";
-import type { AiLogDoc, ClientDoc, MetricsDoc, ReviewDoc, ScreenshotDoc } from "./schemas";
+import { claimReviewSlug } from "./review-link";
+import type { AiLogDoc, ClientDoc, MetricsDoc, ReviewClickDoc, ReviewDoc, ScreenshotDoc } from "./schemas";
 
 // Reuse one client across hot reloads and warm serverless invocations.
 const globalForMongo = globalThis as unknown as { _mongo?: Promise<Db> };
@@ -48,12 +49,20 @@ async function connect(): Promise<Db> {
     db.collection("clients").createIndex({ active: 1, schedules: 1 }),
     // sparse: only clients with a graphs link carry the field
     db.collection("clients").createIndex({ shareToken: 1 }, { unique: true, sparse: true }),
+    // sparse: a client from before review links existed has none until the loop below
+    db.collection("clients").createIndex({ reviewSlug: 1 }, { unique: true, sparse: true }),
+    db.collection("review_clicks").createIndex({ clientId: 1, day: 1, source: 1 }, { unique: true }),
     db.collection("reviews").createIndex({ clientId: 1, fetchedAt: 1 }),
     db.collection("screenshots").createIndex({ clientId: 1, capturedAt: -1 }),
     db.collection("metrics").createIndex({ clientId: 1, periodEnd: -1 }),
     db.collection("ai_logs").createIndex({ createdAt: -1 }),
     db.collection("ai_logs").createIndex({ clientId: 1, createdAt: -1 }),
   ]);
+  // Clients from before review links existed get theirs here, oldest first so two businesses with
+  // the same name always come out the same way round. Nothing to do once they all have one.
+  const clients = db.collection<ClientDoc>("clients");
+  const unnamed = clients.find({ reviewSlug: { $exists: false } }, { projection: { name: 1 } }).sort({ _id: 1 });
+  for await (const client of unnamed) await claimReviewSlug(clients, client._id, client.name);
   return db;
 }
 
@@ -75,5 +84,6 @@ export async function collections() {
     metrics: db.collection<MetricsDoc>("metrics"),
     aiLogs: db.collection<AiLogDoc>("ai_logs"),
     reviews: db.collection<ReviewDoc>("reviews"),
+    reviewClicks: db.collection<ReviewClickDoc>("review_clicks"),
   };
 }

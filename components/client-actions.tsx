@@ -15,6 +15,7 @@ import { ReviewBannerDialog } from "@/components/review/review-banner-dialog";
 import { ReviewQrDialog } from "@/components/review/review-qr-dialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import type { ClientView } from "@/lib/data";
+import { reviewUrl } from "@/lib/review-link";
 import { cn } from "@/lib/utils";
 
 type CopyTarget = "profile" | "review";
@@ -52,7 +53,8 @@ export function ClientActions({
   async function copy(link: CopyTarget) {
     setError("");
     try {
-      await navigator.clipboard.writeText(link === "profile" ? client.url : client.googleReviewUrl);
+      // the review link is the client's own (/review/<business-name>), which counts who opens it
+      await navigator.clipboard.writeText(link === "profile" ? client.url : reviewUrl(client));
     } catch {
       setError(`Could not copy the ${link} link.`);
       return;
@@ -98,7 +100,7 @@ export function ClientActions({
           onClick={() => copy("review")}
         >
           {copied === "review" ? <CheckIcon /> : <CopyIcon />}
-          {copied === "review" ? "Review link copied" : "Copy Google review link"}
+          {copied === "review" ? "Review link copied" : "Copy review link"}
         </Button>
         <Button variant="outline" size="sm" onClick={() => copy("profile")}>
           {copied === "profile" ? <CheckIcon /> : <CopyIcon />}

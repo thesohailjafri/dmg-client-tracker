@@ -20,6 +20,8 @@ import {
 import { formatDate, formatDay, type KeyNumber } from "@/lib/format";
 import { LEAD_LABELS } from "@/lib/leads";
 import { formatPhone } from "@/lib/phone";
+import { RECENT_DAYS, reviewClickTotals, type ReviewClickTotals } from "@/lib/review-clicks";
+import { reviewUrl } from "@/lib/review-link";
 import { umamiWebsiteUrl } from "@/lib/umami";
 
 export default function ClientOverviewPage({ params }: PageProps<"/clients/[id]">) {
@@ -38,7 +40,11 @@ async function Overview({ id }: { id: string }) {
   // the layout above already says the client was not found
   if (!client) return null;
 
-  const [analytics, gbp] = await Promise.all([listAnalyticsSnapshots(id), listGbpSnapshots(id)]);
+  const [analytics, gbp, clicks] = await Promise.all([
+    listAnalyticsSnapshots(id),
+    listGbpSnapshots(id),
+    reviewClickTotals(id),
+  ]);
   const traffic = analytics.snapshots[0];
   const profile = profileNumbers(gbp);
 
@@ -100,6 +106,8 @@ async function Overview({ id }: { id: string }) {
           )}
         </CardContent>
       </Card>
+
+      <ReviewLink client={client} clicks={clicks} />
 
       <Details client={client} />
 
@@ -234,6 +242,57 @@ function Emails({ client }: { client: ClientView }) {
             </a>
           </Detail>
         </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
+// The client's own review link and how many people it has sent on to Google. The address is shown
+// as text, not a link: opening it from here would count as a click.
+function ReviewLink({ client, clicks }: { client: ClientView; clicks: ReviewClickTotals }) {
+  const link = reviewUrl(client);
+  const figure = (label: string, { total, recent }: ReviewClickTotals["link"]): KeyNumber => ({
+    label,
+    value: total.toLocaleString("en-US"),
+    change: `${recent.toLocaleString("en-US")} in the last ${RECENT_DAYS} days`,
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Review link</CardTitle>
+        <CardDescription>
+          The link this business shares with its customers. It shows a preview in chat apps and opens the
+          Google review page.
+        </CardDescription>
+        {link && (
+          <CardAction>
+            <a
+              href={`/review/${client.reviewSlug}/opengraph-image`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-primary hover:underline"
+            >
+              See the preview
+            </a>
+          </CardAction>
+        )}
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {link ? (
+          <>
+            <p className="truncate font-mono text-sm select-all">{link}</p>
+            <KeyNumbers numbers={[figure("Link clicks", clicks.link), figure("QR scans", clicks.qr)]} />
+            <p className="text-xs text-muted-foreground">
+              Counted each time someone is sent on to Google, so the same person opening it twice counts
+              twice. A chat app fetching the preview is not counted. QR codes downloaded before this link
+              existed point straight at Google and are not counted.
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Save this client&apos;s Google review link on the Edit tab to turn its review link on.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

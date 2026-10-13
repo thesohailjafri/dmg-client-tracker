@@ -145,6 +145,10 @@ export type ClientDoc = ClientInput & {
   // The secret in this client's read-only link (/share/<business-name>/<token>). Absent = no link.
   // Made when the client is created, reset by /api/clients/[id]/share, never set by the client form.
   shareToken?: string;
+  // The business name in this client's review link (/review/<slug>). Made once from the name and
+  // kept through a rename, because the link is out with the business's customers and on printed QR
+  // codes. Never set by the client form.
+  reviewSlug?: string;
   // How the welcome email went when the client was created. Absent on clients from before it existed.
   welcomeEmail?: EmailResult & { at: Date };
   lastRunAt?: Date;
@@ -207,6 +211,20 @@ export type ReviewDoc = {
   rating: number | null;
   reviewCount: number | null;
   fetchedAt: Date;
+};
+
+// How someone reached a client's review link: by opening the shared link, or by scanning a QR code.
+export const CLICK_SOURCES = ["link", "qr"] as const;
+export type ClickSource = (typeof CLICK_SOURCES)[number];
+
+// collection: review_clicks — how many people a client's review link sent on to Google, one doc
+// per client, day and source.
+export type ReviewClickDoc = {
+  _id: ObjectId;
+  clientId: ObjectId;
+  day: string; // UTC, "2026-10-13"
+  source: ClickSource;
+  count: number;
 };
 
 export type MetricTotals = {
