@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
 // Link previews need full addresses for their image. Without NEXT_PUBLIC_APP_URL, Next.js works
@@ -18,7 +19,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }

@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
+import { toast } from "@/components/ui/toast";
 import type { ClientView } from "@/lib/data";
 import { GRAPH_SECTION_LABELS } from "@/lib/graphs";
 import { LEAD_LABELS } from "@/lib/leads";
@@ -278,10 +279,12 @@ export function ClientForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
+    const body = (await res.json().catch(() => ({}))) as { id?: string; error?: string; welcomeEmail?: string };
     if (!res.ok) {
       setPending(false);
+      // said in the form, next to the button, and in a toast, in case that is scrolled out of sight
       setError(body.error ?? "Save failed.");
+      toast.add({ type: "error", title: "Not saved", description: body.error ?? "Save failed." });
       return;
     }
     // creating answers with the new id; editing already knows it
@@ -291,8 +294,19 @@ export function ClientForm({
     setPending(false);
     if (logoProblem) {
       setError(`The client is saved, but its logo is not. ${logoProblem}`);
+      toast.add({ type: "error", title: "Saved, but not the logo", description: logoProblem });
       return;
     }
+    // raised before the page changes: the toaster sits above every page, so it carries over
+    toast.add({
+      type: "success",
+      title: existingId ? "Changes saved" : "Client added",
+      description: existingId
+        ? name.trim()
+        : body.welcomeEmail === "sent"
+          ? `${name.trim()} is set up and its welcome email is sent.`
+          : `${name.trim()} is set up. Its welcome email was not sent: see the client's Overview.`,
+    });
     onSaved(id);
   }
 
